@@ -41,10 +41,11 @@ static bool free_one_partition(struct hash_table_partition* partition) {
 // Function to lock bucket.
 // bucket : which to be locked.
 static void lock_bucket(struct partition_bucket *bucket) {
-    while(1) {
+    while(true) {
         // Modify the lowest bit to 
         uint32_t v = *(volatile uint32_t *)&bucket->version & ~1U;
         uint32_t new_v = v | 1U;
+        // compare & swap
         if (__sync_bool_compare_and_swap((volatile uint32_t *)&bucket->version, v, new_v))
 			break;
     }
@@ -62,8 +63,7 @@ static void unlock_bucket(struct partition_bucket *bucket) {
 // Function to read a bucket version
 // bucket : read version from it
 static uint32_t read_begin_version(struct partition_bucket *bucket) {
-    while(true)
-    {
+    while(true) {
         uint32_t v = *(volatile uint32_t *)&bucket->version;
 		memory_barrier();
         // if is not be locked.
@@ -176,7 +176,6 @@ static bool delete_bucket_item(struct partition_bucket *bucket, uint32_t item_in
     // Free the old hashtable item.
     struct hash_table_item *addr = (struct hash_table_item*) bucket->items[item_index].addr;
     free(addr);
-
     // Clear the item of bucket.
     bucket->items[item_index].signature = 0;
     bucket->items[item_index].addr = 0;
@@ -214,6 +213,7 @@ uint16_t HashTable::calc_bucket_index(const char *key, size_t key_len) {
 }
 
 // Put key-value into hashtable
+// When we put kv in a bucket, we need to lock the bucket
 Status HashTable::Put(Slice &s_key, Slice &s_value) { 
     Status status;
     // Here to calculate partition index.
@@ -238,7 +238,9 @@ Status HashTable::Put(Slice &s_key, Slice &s_value) {
     uint32_t item_index = find_item_index(key, key_len, &tmp_bucket);
 
     if (item_index != NUM_ITEMS_PER_BUCKET) {
+        // Find so we need to update.
         bool res = update_bucket_item(key, key_len, value, value_len, tmp_bucket, item_index);
+        bucket = tmp_bucket;
     } else {
         item_index = find_empty_item_index(&bucket);
         if(item_index != NUM_ITEMS_PER_BUCKET) {
@@ -248,14 +250,16 @@ Status HashTable::Put(Slice &s_key, Slice &s_value) {
             // TODO no space operator.
         }
     }
-    
-    // TODO Persist data
+    // TODO Here to clflsh data in nvm to persist data.
+    persist_data((void *)bucket, 16);
     // Unlock bucket.
     unlock_bucket(bucket);
     return status;
 }
 
 // Get key-value into hashtable
+// Don't have to lock buclet, we only to use compare & swap to
+// ensure the bucket didn't change during we search. ^_^
 Status HashTable::Get(Slice &s_key, Slice &s_value) {
     Status status;
     const char *key = s_key.data();
@@ -297,6 +301,7 @@ Status HashTable::Get(Slice &s_key, Slice &s_value) {
 }
 
 // Delete key-value into hashtable
+// We need to lock the bucket during we delete.
 Status HashTable::Delete(Slice &s_key) {
     Status status;
     // Here to calculate partition index.
@@ -312,21 +317,20 @@ Status HashTable::Delete(Slice &s_key) {
 
     // Here to calculate bucket index.
     struct partition_bucket *bucket = partitions[partition_index]->buckets + bucket_index;
-    struct partition_bucket *tmp_bucket = bucket;
-    
+   
     // Lock bucket prepare to put key-value
     lock_bucket(bucket);
-    uint32_t item_index = find_item_index(key, key_len, &tmp_bucket);
+    uint32_t item_index = find_item_index(key, key_len, &bucket);
 
     if (item_index != NUM_ITEMS_PER_BUCKET) {
-        bool res = delete_bucket_item(tmp_bucket, item_index);
+        bool res = delete_bucket_item(bucket, item_index);
         status.set_ok(res);
     } else {
         // 404 No Found.
         status.set_ok(false);
     }
-    
-    // TODO Persist data
+    // TODO persist
+    persist_data((void *)bucket, 16);
     // Unlock bucket.
     unlock_bucket(bucket);
     return status; 

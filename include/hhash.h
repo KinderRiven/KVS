@@ -19,6 +19,12 @@
 // Combine key-value length.
 #define HIKV_VEC_KV_LENGTH(key_length, value_length) \
     (((uint32_t)(key_length) << 24) | (uint32_t)(value_length))
+
+// the count of items of per bucker.
+#define NUM_ITEMS_PER_BUCKET 128
+// the max partitions of per hashtable.
+#define MAX_PARTITIONS_PER_HT 16
+
         
 namespace hikv 
 {

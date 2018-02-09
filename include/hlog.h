@@ -7,8 +7,7 @@
  */
 #ifndef HLOG_H_
 #define HLOG_H_
-namespace hikv
-{
+namespace hikv {
     
 }
 #endif

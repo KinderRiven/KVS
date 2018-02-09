@@ -8,7 +8,4 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-#define NUM_ITEMS_PER_BUCKET 128
-#define MAX_PARTITIONS_PER_HT 16
-
 #endif
