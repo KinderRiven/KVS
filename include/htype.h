@@ -59,9 +59,7 @@ namespace hikv{
             void set_size(size_t size) { 
                 size_ = size; 
             }
-            void set(std::string) {
-
-            }
+            void set(std::string) {}
             // Overload operator.
             char operator[](size_t n) const {
                 assert(n < size());

@@ -49,7 +49,7 @@ void TestHashTableFactory::single_thread_test() {
                 break;
         }
         gettimeofday(&end_time, NULL);
-        assert(status.ok() == 1);
+        assert(status.is_ok() == 1);
         double exe_time = (double)(1000000.0 * ( end_time.tv_sec - begin_time.tv_sec ) + \
                     end_time.tv_usec - begin_time.tv_usec) / 1000000.0;
         time_count += exe_time;

@@ -8,22 +8,33 @@
 #ifndef HSTATUS_H_
 #define HSTATUS_H_
 
-namespace hikv 
+namespace hikv
 {
+    #define STATUS_OK (1 << 0)
+    #define STATUS_RUNNING (1 << 1)
     class Status 
     {
         public:
-            Status(){}
-            Status(bool ok) : _ok(ok){}
-            ~Status(){}
-            bool ok() {
-                return _ok;
+            Status(){ 
+                ok = 0;
+                running = 0; 
             }
-            void set_ok(bool ok) {
-                _ok = ok;
+            ~Status(){}
+            void set_ok(bool ok_) {
+                ok = ok_;
+            }
+            bool is_ok() { 
+                return ok;
+            }
+            void set_running(bool running_) {
+                running = running_;
+            }
+            bool is_running() {
+                return running;
             }
         private:
-            bool _ok;
+            bool ok;
+            bool running;
     };
 }
 
