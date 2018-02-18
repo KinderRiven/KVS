@@ -12,18 +12,19 @@
 #include "hstatus.h"
 
 // Hight 8 bits is key length.
-#define HIKV_KEY_LENGTH(vec_length) ((vec_length >> 24))
+#define HIKV_KEY_MASK (((uint32_t)1 << 8) - 1)
+#define HIKV_KEY_LENGTH(kv_length_vec) ((kv_length_vec) >> 24)
+
 // Low 24 bits is value length.
 #define HIKV_VALUE_MASK  (((uint32_t)1 << 24) - 1)
 #define HIKV_VALUE_LENGTH(kv_length_vec) ((kv_length_vec) & HIKV_VALUE_MASK)
 // Combine key-value length.
-#define HIKV_VEC_KV_LENGTH(key_length, value_length) \
-    (((uint32_t)(key_length) << 24) | (uint32_t)(value_length))
+#define HIKV_VEC_KV_LENGTH(key_length, value_length) (((uint32_t)(key_length) << 24) | (uint32_t)(value_length))
 
 // the count of items of per bucker.
-#define NUM_ITEMS_PER_BUCKET 128
+#define NUM_ITEMS_PER_BUCKET 4096
 // the max partitions of per hashtable.
-#define MAX_PARTITIONS_PER_HT 16
+#define MAX_PARTITIONS_PER_HT 4096
 
         
 namespace hikv 

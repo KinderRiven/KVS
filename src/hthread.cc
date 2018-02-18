@@ -17,13 +17,18 @@ ThreadPool::ThreadPool(uint8_t type, uint32_t num_threads, uint32_t num_queues, 
     this->queue_size = queue_size;
 }
 
+ThreadPool::~ThreadPool() {
+    for(int i = 0; i < num_queues; i++)
+        free(queues[i]);
+}
+
 struct request_queue *ThreadPool::get_queue(int qid) {
     return this->queues[qid];
 }
 
-static hash_table_worker *get_ht_worker(struct request_queue *queue,  int pos) {
-    uint32_t p = (pos % queue->size) * sizeof(struct hash_table_worker);
-    return (hash_table_worker*)(queue->data + p);
+static bplus_tree_worker *get_bplus_worker(struct request_queue *queue,  int pos) {
+    uint32_t p = (pos % queue->size) * sizeof(struct bplus_tree_worker);
+    return (bplus_tree_worker*)(queue->data + p);
 }
 
 static bool queue_is_full(struct request_queue *queue) {
@@ -44,18 +49,16 @@ static bool queue_is_empty(struct request_queue *queue) {
 static void process_request(struct thread_args* args) {
     // Start to process request.
     while(true) {
+        Status tmp_status;
         for(int i = args->start_qid; i <= args->end_qid; i++) {
             struct request_queue *q_tmp = args->tp->get_queue(i);
             if( queue_is_empty(q_tmp) ) {
                 continue;
             }
-            // if is HashTable operator.
-            struct hash_table_worker *worker = get_ht_worker(q_tmp, q_tmp->front);
-            cout << q_tmp->front << " " << q_tmp->tail << endl;
-            cout << worker->key << " " << worker->value << endl;
-            __sync_add_and_fetch(&(q_tmp->front), 1);
-            worker->status->set_running(false);
-            // if is bplus tree operator.
+            // If is bplus tree operator.
+            if ( args->tp->get_type() == TYPE_THREAD_POOL_BTREE ) {
+                __sync_add_and_fetch(&(q_tmp->front), 1);
+            }
         }
     }
 }
@@ -77,9 +80,6 @@ bool ThreadPool::init_queue() {
     if (type == TYPE_THREAD_POOL_BTREE) {
         malloc_size = sizeof(request_queue) + \
                 queue_size * sizeof(bplus_tree_worker);
-    } else if (type == TYPE_THREAD_POOL_HASH) {
-        malloc_size = sizeof(request_queue) + \
-                queue_size * sizeof(hash_table_worker);
     } else {
         return false;
     }
@@ -142,29 +142,25 @@ bool ThreadPool::init() {
 }
 
 // Function to insert a worker into queue.
-bool ThreadPool::add_worker(uint32_t qid, void *object, Slice &key, Slice &value, Status *status) {
+bool ThreadPool::add_worker(uint8_t opt, uint32_t qid, void *object, Slice &key, Slice &value) {
+    // bplus threadpool.
     if (this->type == TYPE_THREAD_POOL_BTREE) {
-        // TODO bplus tree operator.
-    } else if (this->type == TYPE_THREAD_POOL_HASH) {
         if(this->one_queue_one_consumer == true) {
             struct request_queue *q_tmp = this->queues[qid];
             while(true) {
-                int front = q_tmp->front;
                 int tail = q_tmp->tail;
                 if( queue_is_full(q_tmp) ) {
                     // Queue if full.
                     continue;
                 }
-                struct hash_table_worker *worker = get_ht_worker(q_tmp, tail);
-                worker->hash_table = (HashTable *) object;
+                struct bplus_tree_worker *worker = get_bplus_worker(q_tmp, tail);
                 worker->key = key, worker->value = value;
-                worker->status = status;
+                worker->type = opt;
                 // Atomic operation tail++.
                 __sync_add_and_fetch(&(q_tmp->tail), 1);
                 break;
             }
         } else {
-
         }
     } else {
         return false;

@@ -38,10 +38,10 @@ namespace hikv{
     class Slice {
         public:
             // Create an empty slice.
-            Slice() : data_(""), size_(0){};
-            Slice(const char *d, size_t s) : data_(d), size_(s){}
-            Slice(std::string &s) : data_(s.data()), size_(s.size()){}
-            Slice(const char *s) : data_(s), size_(strlen(s)){}
+            Slice() : size_(0), data_("") {};
+            Slice(const char *d, size_t s) : size_(s), data_(d) {}
+            Slice(std::string &s) : size_(s.size()), data_(s.data()){}
+            Slice(const char *s) : size_(strlen(s)), data_(s){}
             // Return value.
             const char* data() const {
                 return data_;

@@ -1,13 +1,5 @@
 #include "htest.h"
-#include "hhash.h"
-#include "htype.h"
-#include "hstatus.h"
-#include <fstream>
-#include <iostream>
-#include <cstdio>
-#include <unistd.h>
-#include <sys/time.h>
-
+#include <vector>
 using namespace std;
 using namespace hikv;
 
@@ -16,32 +8,36 @@ void TestHashTableFactory::single_thread_test() {
     
     int opt, opt_count = 0;
     double time_count = 0;
-    struct timeval begin_time, end_time;
+    struct timeval begin_time, end_time;    // count time
     pid_t pid;
     char key[1024], value[1024];
     Status status;
+    vector<string> vec_key, vec_value;
     
     HashTable *ht = new HashTable(num_partitions, num_buckets); 
     ifstream in(data_in);
     
-    // Show pid message.
+    // Show Message.
     pid = getpid();
-    cout << "running data in : " << data_in << endl;
-    cout << "pid : " << pid << endl;
+    printf("[HashTable test is running]\n");
+    printf("[Input filename] : %s\n[PID] : %d\n", data_in, pid);
     
     while(in >> opt) {
         in >> key >> value;
+        vec_key.push_back(key);
+        vec_value.push_back(value);
         Slice s_key = Slice(key), s_value = Slice(value);
         opt_count++;
         gettimeofday(&begin_time, NULL);
         switch(opt) {
-            case HASH_PUT:
+            case TEST_PUT:
                 status = ht->Put(s_key, s_value);
-                break;
-            case HASH_GET:
                 ht->Get(s_key, s_value);
                 break;
-            case HASH_DEL:
+            case TEST_GET:
+                ht->Get(s_key, s_value);
+                break;
+            case TEST_DEL:
                 ht->Delete(s_key);
                 break;
             default:
@@ -55,8 +51,14 @@ void TestHashTableFactory::single_thread_test() {
         time_count += exe_time;
     }
     // Show result.
-    printf("opt count : %d, time_count : %.5f s, iops : %.5f\n", \
+    printf("[Result] opt count : %d, time_count : %.5f s, iops : %.5f\n", \
             opt_count, time_count, (double) opt_count / time_count);
+    for(int i = 0; i < vec_key.size(); i++) {
+        Slice key = Slice(vec_key[i]);
+        Slice value;
+        Status status = ht->Get(key, value);
+        assert(status.is_ok() == true);
+    }
     delete(ht);
     in.close();
 }

@@ -141,7 +141,9 @@ static bool put_bucket_item(const char *key,  size_t key_len, \
     bucket->items[item_index].addr = (uint64_t) addr;
     
     // Copy data to the hashtable item.
-    addr->vec_length = HIKV_VEC_KV_LENGTH(key_len, value_len);
+    addr->vec_length = HIKV_VEC_KV_LENGTH(key_len, value_len);   
+    //printf("(%d, %d) [%d %d %d]\n", key_len, value_len, addr->vec_length, \
+        HIKV_KEY_LENGTH(addr->vec_length), HIKV_VALUE_LENGTH(addr->vec_length));
     Tool::hmemcpy(addr->data, (uint8_t *) key, key_len);
     Tool::hmemcpy(addr->data + key_len, (uint8_t *) value, value_len);
     return true;
@@ -198,7 +200,7 @@ HashTable::HashTable(uint32_t num_partitions, uint32_t num_buckets) {
 HashTable::~HashTable() {
     for(int i = 0; i < num_partitions; i++) {
         free_one_partition(partitions[i]);
-        delete(partitions[i]);
+        free(partitions[i]);
     }
 }
 
@@ -236,22 +238,23 @@ Status HashTable::Put(Slice &s_key, Slice &s_value) {
     // Lock bucket prepare to put key-value
     lock_bucket(bucket);
     uint32_t item_index = find_item_index(key, key_len, &tmp_bucket);
-
+    bool res;
     if (item_index != NUM_ITEMS_PER_BUCKET) {
         // Find so we need to update.
-        bool res = update_bucket_item(key, key_len, value, value_len, tmp_bucket, item_index);
+        res = update_bucket_item(key, key_len, value, value_len, tmp_bucket, item_index);
         bucket = tmp_bucket;
     } else {
         item_index = find_empty_item_index(&bucket);
         if(item_index != NUM_ITEMS_PER_BUCKET) {
-            bool res = put_bucket_item(key, key_len, value, value_len, bucket, item_index);
-            status.set_ok(true);
+            res = put_bucket_item(key, key_len, value, value_len, bucket, item_index);
         } else {
             // TODO no space operator.
+            res = false;
         }
     }
+    status.set_ok(res);
     // TODO Here to clflsh data in nvm to persist data.
-    persist_data((void *)bucket, 16);
+    // persist_data((void *)bucket, 16);
     // Unlock bucket.
     unlock_bucket(bucket);
     return status;
@@ -272,7 +275,7 @@ Status HashTable::Get(Slice &s_key, Slice &s_value) {
     // Here to calculate bucket index.
     uint32_t bucket_index = calc_bucket_index(key, key_len);
     struct partition_bucket *bucket = partitions[partition_index]->buckets + bucket_index;
-    while(true) 
+    while(true)
     {
         uint32_t begin_version = read_begin_version(bucket);
         uint32_t item_index = find_item_index(key, key_len, &bucket);
@@ -290,10 +293,10 @@ Status HashTable::Get(Slice &s_key, Slice &s_value) {
         uint32_t vec_length = ht_item->vec_length;
         uint32_t key_len = HIKV_KEY_LENGTH(vec_length);
         uint32_t value_len = HIKV_VALUE_LENGTH(vec_length);
+        printf("[%u %u %u]\n", vec_length, key_len, value_len);
         char *value = (char *)malloc( sizeof(value_len) );
-        Tool::hmemcpy( (uint8_t *) value, (uint8_t *) ht_item->data + key_len, value_len);
+        //Tool::hmemcpy( (uint8_t *) value, (uint8_t *) ht_item->data + key_len, value_len);
         s_value.set(value, value_len);
-
         status.set_ok(true);
         break;
     }

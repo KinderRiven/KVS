@@ -8,9 +8,14 @@
 #ifndef HTHREAD_H_
 #define HTHREAD_H_
 
-#include <pthread.h>
+#define _GNU_SOURCE
 #include "htype.h"
 #include "hhash.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <unistd.h>
 
 // threads
 #define MAX_NUM_THREADS 64
@@ -25,7 +30,10 @@
 #define DEFAULT_QUEUE_SIZE 1024
 
 #define TYPE_THREAD_POOL_BTREE 1
-#define TYPE_THREAD_POOL_HASH 2
+
+#define TYPE_WORKER_PUT 1
+#define TYPE_WORKER_GET 2
+#define TYPE_WORKER_DEL 3
 
 namespace hikv
 {
@@ -33,14 +41,14 @@ namespace hikv
     // Bplus tree worker struct
     struct bplus_tree_worker {
         // TODO b+ tree
+        uint8_t type;
         Slice key, value;
-        Status *status;
     };
     // HashTable worker struct
     struct hash_table_worker {
         HashTable *hash_table;
         Slice key, value;
-        Status *status;
+        uint8_t type;
     };
     // Thread arg
     struct thread_args {
@@ -74,7 +82,8 @@ namespace hikv
             ThreadPool(uint8_t type, uint32_t num_threads, uint32_t num_queues, uint32_t queue_size);
             ~ThreadPool();
             bool init();
-            bool add_worker(uint32_t qid, void *object, Slice &key, Slice &value, Status *status);
+            uint8_t get_type() { return type; }
+            bool add_worker(uint8_t opt, uint32_t qid, void *object, Slice &key, Slice &value);
             struct request_queue *get_queue(int qid);
     };
 }

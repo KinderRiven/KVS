@@ -33,8 +33,8 @@ namespace hikv
                 return running;
             }
         private:
-            bool ok;
-            bool running;
+            volatile bool ok;
+            volatile bool running;
     };
 }
 
