@@ -13,7 +13,6 @@ HiKV::HiKV(size_t max_key_length, size_t max_value_length, \
         new ThreadPool(TYPE_THREAD_POOL_BTREE, num_backend_threads, \
                         num_backend_queues, 1024);
     backend_thread_pool->init();
-    
     this->num_backend_queues = num_backend_queues;
 }
 
@@ -32,6 +31,6 @@ Status HiKV::Get(Slice &key, Slice &value) {
 Status HiKV::Put(Slice &key, Slice &value) {
     Status status;
     status = hash_table->Put(key, value);
-    // backend_thread_pool->add_worker(TYPE_WORKER_PUT, 0, NULL, key, value);
+    backend_thread_pool->add_worker(TYPE_WORKER_PUT, 0, NULL, key, value);
     return status;
 }

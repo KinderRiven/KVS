@@ -32,20 +32,13 @@ void TestHashTableFactory::single_thread_test() {
         switch(opt) {
             case TEST_PUT:
                 status = ht->Put(s_key, s_value);
-                ht->Get(s_key, s_value);
-                break;
-            case TEST_GET:
-                ht->Get(s_key, s_value);
-                break;
-            case TEST_DEL:
-                ht->Delete(s_key);
                 break;
             default:
                 cout << "Illegal Parameters!" << endl;
                 break;
         }
         gettimeofday(&end_time, NULL);
-        assert(status.is_ok() == 1);
+        assert(status.is_ok() == true);
         double exe_time = (double)(1000000.0 * ( end_time.tv_sec - begin_time.tv_sec ) + \
                     end_time.tv_usec - begin_time.tv_usec) / 1000000.0;
         time_count += exe_time;
@@ -53,10 +46,11 @@ void TestHashTableFactory::single_thread_test() {
     // Show result.
     printf("[Result] opt count : %d, time_count : %.5f s, iops : %.5f\n", \
             opt_count, time_count, (double) opt_count / time_count);
-    for(int i = 0; i < vec_key.size(); i++) {
+    for(int i = vec_key.size() - 1; i >= 0; i--) {
         Slice key = Slice(vec_key[i]);
         Slice value;
-        Status status = ht->Get(key, value);
+        status = ht->Get(key, value);
+        cout << status << endl;
         assert(status.is_ok() == true);
     }
     delete(ht);

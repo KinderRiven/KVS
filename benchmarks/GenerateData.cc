@@ -81,7 +81,7 @@ void GenerateDataFactory::generate_data() {
     os.close();
 }
 
-GenerateDataConfig config = {16, 128, 16, 128, "data_50M.in", 50 * 1024 * 1024};
+GenerateDataConfig config = {16, 128, 16, 128, "data_500M.in", 500 * 1024 * 1024};
 
 int main(int agrc, char *argv[]) {
     GenerateDataFactory *factory = new GenerateDataFactory(config);

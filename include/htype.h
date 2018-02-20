@@ -35,13 +35,38 @@ typedef unsigned long size_t;
 typedef std::pair<uint64_t, uint64_t> uint128_t;
 
 namespace hikv{
+    #define SLICE_SIZE 2048
     class Slice {
         public:
             // Create an empty slice.
-            Slice() : size_(0), data_("") {};
-            Slice(const char *d, size_t s) : size_(s), data_(d) {}
-            Slice(std::string &s) : size_(s.size()), data_(s.data()){}
-            Slice(const char *s) : size_(strlen(s)), data_(s){}
+            Slice() {
+                data_ = (char *)malloc(SLICE_SIZE);
+                size_ = 0;
+            };
+            // Copy
+            Slice(const Slice &s) {
+                this->size_ = s.size_;
+                this->data_ = (char *)malloc(SLICE_SIZE);
+                memcpy((void *)this->data_, (void *)s.data_, SLICE_SIZE);
+            }
+            Slice(const char *d, size_t s) {
+                data_ = (char *)malloc(SLICE_SIZE);
+                size_ = s;
+                memcpy((void *)data_, (void *)d, size_);
+            }
+            Slice(std::string &s) {
+                data_ = (char *)malloc(SLICE_SIZE);
+                size_ = s.size();
+                memcpy((void *)data_, (void *)s.data(), size_);
+            }
+            Slice(const char *s) {
+                data_ = (char *)malloc(SLICE_SIZE);
+                size_ = strlen(s);
+                memcpy((void *)data_, (void *)s, size_);
+            }
+            ~Slice() {
+                free(data_);
+            }
             // Return value.
             const char* data() const {
                 return data_;
@@ -51,15 +76,17 @@ namespace hikv{
             }
             // Set value.
             void set(const char *data, size_t size) {
-                data_ = data, size_ = size;
+                size_ = size;
+                memcpy((void *)data_, (void *)data, size_);
             }
-            void set_data(char *data) { 
-                data_ = data; 
+            void set(const char *data) {
+                size_ = strlen(data_);
+                memcpy((void *)data_, (void *)data, size_);
             }
-            void set_size(size_t size) { 
-                size_ = size; 
+            void set(std::string s) {
+                size_ = s.size();
+                memcpy((void *)data_, (void *)s.data(), size_);
             }
-            void set(std::string) {}
             // Overload operator.
             char operator[](size_t n) const {
                 assert(n < size());
@@ -73,7 +100,7 @@ namespace hikv{
             }
         private:
             size_t size_;
-            const char *data_;
+            char *data_;
     };
     inline bool operator == (const Slice &x, const Slice &y) {
         return ((x.size() == y.size()) && (memcmp(x.data(), y.data(), x.size()) == 0));

@@ -45,6 +45,12 @@ static bool queue_is_empty(struct request_queue *queue) {
         return false;
 }
 
+static void process_bplus_request(struct request_queue *queue) {
+    // DOTO work
+    // Atomic operation tail++.
+    __sync_add_and_fetch(&(queue->front), 1);
+}
+
 // Function to process request.
 static void process_request(struct thread_args* args) {
     // Start to process request.
@@ -55,9 +61,12 @@ static void process_request(struct thread_args* args) {
             if( queue_is_empty(q_tmp) ) {
                 continue;
             }
-            // If is bplus tree operator.
-            if ( args->tp->get_type() == TYPE_THREAD_POOL_BTREE ) {
-                __sync_add_and_fetch(&(q_tmp->front), 1);
+            // Here to solve bplus work.
+            switch(args->tp->get_type()) {
+                case TYPE_THREAD_POOL_BTREE:
+                    process_bplus_request(q_tmp);
+                default:
+                    break;
             }
         }
     }
@@ -71,7 +80,6 @@ static void* thread_run(void *args_) {
     process_request(args);
     return NULL;
 }
-
 
 // Function to init queue, include malloc queue space.
 bool ThreadPool::init_queue() {
@@ -143,7 +151,7 @@ bool ThreadPool::init() {
 
 // Function to insert a worker into queue.
 bool ThreadPool::add_worker(uint8_t opt, uint32_t qid, void *object, Slice &key, Slice &value) {
-    // bplus threadpool.
+    // b+tree type threadpool
     if (this->type == TYPE_THREAD_POOL_BTREE) {
         if(this->one_queue_one_consumer == true) {
             struct request_queue *q_tmp = this->queues[qid];
