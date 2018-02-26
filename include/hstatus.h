@@ -22,28 +22,36 @@ namespace hikv
     class Status 
     {
         public:
-            Status(){ 
+            Status()
+            { 
                 ok = 0;
                 running = 0; 
                 msg = (char *)malloc(MESSAGE_LENGTH);
             }
             ~Status(){}
+
             void set_ok(bool ok_) {
                 ok = ok_;
             }
+
             bool is_ok() { 
                 return ok;
             }
+
             void set_running(bool running_) {
                 running = running_;
             }
+
             bool is_running() {
                 return running;
             }
+
             void set_msg(const char *msg_) {
                 memcpy((void *)msg, (void *)msg_, strlen(msg_));
             }
-            friend std::ostream& operator << (std::ostream &output, Status &s) {
+
+            friend std::ostream& operator << (std::ostream &output, Status &s) 
+            {
                 if(s.ok) {
                     output << "[OK]:TRUE ";
                 } else {

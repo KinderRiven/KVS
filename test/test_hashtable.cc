@@ -4,8 +4,8 @@ using namespace std;
 using namespace hikv;
 
 // Function to use single thread test 
-void TestHashTableFactory::single_thread_test() {
-    
+void TestHashTableFactory::single_thread_test() 
+{
     int opt, opt_count = 0;
     double time_count = 0;
     struct timeval begin_time, end_time;    // count time
@@ -22,14 +22,16 @@ void TestHashTableFactory::single_thread_test() {
     printf("[HashTable test is running]\n");
     printf("[Input filename] : %s\n[PID] : %d\n", data_in, pid);
     
-    while(in >> opt) {
+    while(in >> opt) 
+    {
         in >> key >> value;
         vec_key.push_back(key);
         vec_value.push_back(value);
         Slice s_key = Slice(key), s_value = Slice(value);
         opt_count++;
         gettimeofday(&begin_time, NULL);
-        switch(opt) {
+        switch(opt) 
+        {
             case TEST_PUT:
                 status = ht->Put(s_key, s_value);
                 break;
@@ -46,7 +48,8 @@ void TestHashTableFactory::single_thread_test() {
     // Show result.
     printf("[Result] opt count : %d, time_count : %.5f s, iops : %.5f\n", \
             opt_count, time_count, (double) opt_count / time_count);
-    for(int i = vec_key.size() - 1; i >= 0; i--) {
+    for(int i = vec_key.size() - 1; i >= 0; i--)
+    {
         Slice key = Slice(vec_key[i]);
         Slice value;
         status = ht->Get(key, value);

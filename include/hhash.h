@@ -22,7 +22,7 @@
 #define HIKV_VEC_KV_LENGTH(key_length, value_length) (((uint32_t)(key_length) << 24) | (uint32_t)(value_length))
 
 // the count of items of per bucker.
-#define NUM_ITEMS_PER_BUCKET 4096
+#define NUM_ITEMS_PER_BUCKET 512
 // the max partitions of per hashtable.
 #define MAX_PARTITIONS_PER_HT 4096
 
@@ -30,29 +30,33 @@
 namespace hikv 
 {
     // struct hash table's item
-    typedef struct hash_table_item {
+    struct hash_table_item 
+    {
         uint32_t vec_length;      // key_size:[0~7], value_size:[8~31]
         uint8_t data[0];
-    } hash_table_item_t;
+    };
 
     // struct bucket's item
-    typedef struct bucket_item {
+    struct bucket_item 
+    {
         uint64_t signature;
         uint64_t addr;
-    } bucket_item_t;
+    };
 
     // struct hash table's bucket (Each bucket has some items)
-    typedef struct partition_bucket {
+    struct partition_bucket 
+    {
         uint32_t version;
         struct partition_bucket *extra_bucket;
         struct bucket_item items[NUM_ITEMS_PER_BUCKET];
-    } partition_bucket_t;
+    };
     
     // struct hash partition (Each partition has some buckets)
-    typedef struct hash_table_partition {
+    struct hash_table_partition 
+    {
         struct partition_bucket *buckets;       // buckets
         uint32_t num_buckets;                   // count buckets
-    } hash_table_partition_t;
+    };
 
     // class hash table (Each hash-table has some partition)
     class HashTable 

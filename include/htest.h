@@ -23,17 +23,20 @@
 
 #define MAX_TEST_THREAD 36
 
-namespace hikv {
+namespace hikv 
+{
     #ifndef TEST_PUT
         #define TEST_PUT 1
         #define TEST_GET 2
         #define TEST_DEL 3
     #endif
-    struct test_thread_args {
+    struct test_thread_args 
+    {
         int thread_id;
         HiKV *hikv;
     };
-    class TestHashTableFactory {
+    class TestHashTableFactory 
+    {
         public:
             TestHashTableFactory(const char *data_in, int num_partitions, int num_buckets) \
                 : data_in(data_in), num_partitions(num_partitions), num_buckets(num_buckets) {};
@@ -44,21 +47,25 @@ namespace hikv {
             int num_partitions;
             int num_buckets;
     };
-    class TestHiKVFactory {
+    class TestHiKVFactory 
+    {
         public:
-            TestHiKVFactory(const char *data_in, uint32_t num_server_threads, \
+            TestHiKVFactory(const char *data_in, 
+                    // hashtable
+                    int num_ht_partitions, \
+                    int num_ht_buckets, \
+                    // threadpool
+                    uint32_t num_server_threads, \
                     uint32_t num_backend_threads, \
-                    uint32_t num_backend_queues) \
-                    : data_in(data_in), 
-                    num_server_threads(num_server_threads), \
-                    num_backend_threads(num_backend_threads), \
-                    num_backend_queues(num_backend_queues) {};
+                    uint32_t num_backend_queues);
             void single_thread_test();
             void multiple_thread_test();
         private:
             pthread_t thread_id[MAX_TEST_THREAD];
             const char *data_in;
             HiKV *hikv;
+            int num_ht_partitions;
+            int num_ht_buckets;
             uint32_t num_server_threads;
             uint32_t num_backend_threads;
             uint32_t num_backend_queues;

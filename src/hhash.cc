@@ -13,7 +13,8 @@ static bool compare2keys(void *key1, uint32_t key1_len, void *key2, uint32_t key
 
 // Funcation to malloc a hashtable partition.
 // [return] : the ptr of partition.
-static struct hash_table_partition* malloc_one_partition(uint32_t num_buckets) {
+static struct hash_table_partition* malloc_one_partition(uint32_t num_buckets) 
+{
     //calculate size of total buckets
     uint32_t total_buckets_size = \
             sizeof(struct partition_bucket) * ( num_buckets );
@@ -31,7 +32,8 @@ static struct hash_table_partition* malloc_one_partition(uint32_t num_buckets) {
 
 // Funcation to malloc a hashtable partition.
 // [return] : the ptr of partition.
-static bool free_one_partition(struct hash_table_partition* partition) {
+static bool free_one_partition(struct hash_table_partition* partition) 
+{
     if(partition == NULL)
         return false;
     free(partition->buckets);
@@ -40,8 +42,10 @@ static bool free_one_partition(struct hash_table_partition* partition) {
 
 // Function to lock bucket.
 // bucket : which to be locked.
-static void lock_bucket(struct partition_bucket *bucket) {
-    while(true) {
+static void lock_bucket(struct partition_bucket *bucket) 
+{
+    while(true) 
+    {
         // Modify the lowest bit to 
         uint32_t v = *(volatile uint32_t *)&bucket->version & ~1U;
         uint32_t new_v = v | 1U;
@@ -53,7 +57,8 @@ static void lock_bucket(struct partition_bucket *bucket) {
 
 // Function to unlock bucket.
 // bucket : which to be unlocked.
-static void unlock_bucket(struct partition_bucket *bucket) {
+static void unlock_bucket(struct partition_bucket *bucket) 
+{
     memory_barrier();
     // if value is zero mean unlock before but now has to unlock
     assert( ( *(volatile uint32_t *)&bucket->version & 1U ) == 1U );
@@ -62,8 +67,10 @@ static void unlock_bucket(struct partition_bucket *bucket) {
 
 // Function to read a bucket version
 // bucket : read version from it
-static uint32_t read_begin_version(struct partition_bucket *bucket) {
-    while(true) {
+static uint32_t read_begin_version(struct partition_bucket *bucket) 
+{
+    while(true) 
+    {
         uint32_t v = *(volatile uint32_t *)&bucket->version;
 		memory_barrier();
         // if is not be locked.
@@ -74,7 +81,8 @@ static uint32_t read_begin_version(struct partition_bucket *bucket) {
 }
 
 // Function to read a bucket version
-static uint32_t read_end_version(struct partition_bucket *bucket) {
+static uint32_t read_end_version(struct partition_bucket *bucket) 
+{
     memory_barrier();
     // if is not be locked.
     uint32_t v = *(volatile uint32_t *)&bucket->version;
@@ -83,12 +91,15 @@ static uint32_t read_end_version(struct partition_bucket *bucket) {
 
 // Function to get item from bucket.
 static uint32_t find_item_index(const char *key, size_t key_len, \
-                                struct partition_bucket **bucket) {
+                                struct partition_bucket **bucket) 
+{
     // Hash64 to compare with bucket signature.
     uint64_t _hash64 = Algorithm::hash64(key, key_len);
     struct partition_bucket *current_bucket = *bucket;
-    while(true) {
-        for(int i = 0; i < NUM_ITEMS_PER_BUCKET; i++) {
+    while(true) 
+    {
+        for(int i = 0; i < NUM_ITEMS_PER_BUCKET; i++) 
+        {
             if(current_bucket->items[i].signature != _hash64)
                 continue;
             // Find a same signature.
@@ -109,11 +120,13 @@ static uint32_t find_item_index(const char *key, size_t key_len, \
 
 // Function to get empty item from bucket
 // bucket : to locate key-value 
-static uint32_t find_empty_item_index(struct partition_bucket **bucket) {
-    
+static uint32_t find_empty_item_index(struct partition_bucket **bucket) 
+{
     struct partition_bucket *current_bucket = *bucket;
-    while(true) {
-        for(int i = 0; i < NUM_ITEMS_PER_BUCKET; i++) {
+    while(true) 
+    {
+        for(int i = 0; i < NUM_ITEMS_PER_BUCKET; i++) 
+        {
             if(current_bucket->items[i].signature == 0) {
                 *bucket = current_bucket;
                 return i;
@@ -181,38 +194,45 @@ static bool delete_bucket_item(struct partition_bucket *bucket, uint32_t item_in
 }
 
 // Structure Function.
-HashTable::HashTable(uint32_t num_partitions, uint32_t num_buckets) {
+HashTable::HashTable(uint32_t num_partitions, uint32_t num_buckets) 
+{
     // Ensure num_partions <= define max
     assert(num_partitions <= MAX_PARTITIONS_PER_HT);
     this->num_partitions = num_partitions;
     this->num_buckets = num_buckets;
     // malloc partitions
-    for(int i = 0; i < num_partitions; i++) {
+    for(int i = 0; i < num_partitions; i++) 
+    {
         this->partitions[i] = malloc_one_partition(num_buckets);
     }
 }
 
 // Destruct Function.
-HashTable::~HashTable() {
-    for(int i = 0; i < num_partitions; i++) {
+HashTable::~HashTable() 
+{
+    for(int i = 0; i < num_partitions; i++) 
+    {
         free_one_partition(partitions[i]);
         free(partitions[i]);
     }
 }
 
 // Function to calculate partition index
-uint16_t HashTable::calc_partition_index(const char *key, size_t key_len) {
+uint16_t HashTable::calc_partition_index(const char *key, size_t key_len) 
+{
     return Algorithm::hash16(key, key_len) % num_partitions;
 }
 
 // Function to calculate bucket index
-uint16_t HashTable::calc_bucket_index(const char *key, size_t key_len) {
+uint16_t HashTable::calc_bucket_index(const char *key, size_t key_len) 
+{
     return Algorithm::hash32(key, key_len) % num_buckets;
 }
 
 // Put key-value into hashtable
 // When we put kv in a bucket, we need to lock the bucket
-Status HashTable::Put(Slice &s_key, Slice &s_value) { 
+Status HashTable::Put(Slice &s_key, Slice &s_value) 
+{ 
     Status status;
     // Here to calculate partition index.
     const char *key = s_key.data();
@@ -263,7 +283,8 @@ Status HashTable::Put(Slice &s_key, Slice &s_value) {
 // Get key-value into hashtable
 // Don't have to lock buclet, we only to use compare & swap to
 // ensure the bucket didn't change during we search. ^_^
-Status HashTable::Get(Slice &s_key, Slice &s_value) {
+Status HashTable::Get(Slice &s_key, Slice &s_value) 
+{
     Status status;
     const char *key = s_key.data();
     size_t key_len = s_key.size();
@@ -303,7 +324,8 @@ Status HashTable::Get(Slice &s_key, Slice &s_value) {
 
 // Delete key-value into hashtable
 // We need to lock the bucket during we delete.
-Status HashTable::Delete(Slice &s_key) {
+Status HashTable::Delete(Slice &s_key) 
+{
     Status status;
     // Here to calculate partition index.
     const char *key = s_key.data();

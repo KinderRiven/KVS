@@ -12,6 +12,7 @@
 #include <string>
 #include <cstring>
 #include <assert.h>
+#include <algorithm>
 #include <stdlib.h>
 #include <iostream>
 
@@ -23,50 +24,65 @@
     #define FALSE 0
 #endif
 
-typedef unsigned long long uint64_t;
-typedef long long  int64_t;
-typedef unsigned int uint32_t;
-typedef int int32_t;
-typedef unsigned short uint16_t;
-typedef short int16_t;
-typedef unsigned char uint8_t;
-typedef signed char int8_t;
-typedef unsigned long size_t;
+#include <stdint.h>
+/*
+ *  typedef unsigned long long uint64_t;
+ *  typedef long long  int64_t;
+ *  typedef unsigned int uint32_t;
+ *  typedef int int32_t;
+ *  typedef unsigned short uint16_t;
+ *  typedef short int16_t;
+ *  typedef unsigned char uint8_t;
+ *  typedef signed char int8_t;
+ *  typedef unsigned long size_t;
+ */
 typedef std::pair<uint64_t, uint64_t> uint128_t;
 
 namespace hikv{
     #define SLICE_SIZE 2048
-    class Slice {
+    class Slice 
+    {
         public:
             // Create an empty slice.
-            Slice() {
+            Slice() 
+            {
                 data_ = (char *)malloc(SLICE_SIZE);
                 size_ = 0;
             };
+            
             // Copy
-            Slice(const Slice &s) {
+            Slice(const Slice &s) 
+            {
                 this->size_ = s.size_;
                 this->data_ = (char *)malloc(SLICE_SIZE);
                 memcpy((void *)this->data_, (void *)s.data_, SLICE_SIZE);
             }
-            Slice(const char *d, size_t s) {
+
+            Slice(const char *d, size_t s) 
+            {
                 data_ = (char *)malloc(SLICE_SIZE);
                 size_ = s;
                 memcpy((void *)data_, (void *)d, size_);
             }
-            Slice(std::string &s) {
+
+            Slice(std::string &s) 
+            {
                 data_ = (char *)malloc(SLICE_SIZE);
                 size_ = s.size();
                 memcpy((void *)data_, (void *)s.data(), size_);
             }
-            Slice(const char *s) {
+
+            Slice(const char *s) 
+            {
                 data_ = (char *)malloc(SLICE_SIZE);
                 size_ = strlen(s);
                 memcpy((void *)data_, (void *)s, size_);
             }
+
             ~Slice() {
                 free(data_);
             }
+            
             // Return value.
             const char* data() const {
                 return data_;

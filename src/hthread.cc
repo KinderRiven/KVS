@@ -2,7 +2,8 @@
 using namespace hikv;
 using namespace std;
 
-ThreadPool::ThreadPool() {
+ThreadPool::ThreadPool() 
+{
     this->type = 0;
     this->num_threads = DEFAULT_NUM_THREADS;
     this->num_queues = DEFAULT_NUM_QUEUES;
@@ -10,59 +11,74 @@ ThreadPool::ThreadPool() {
 }
 
 ThreadPool::ThreadPool(uint8_t type, uint32_t num_threads, uint32_t num_queues, \
-                        uint32_t queue_size) {
+                        uint32_t queue_size) 
+{
     this->type = type;
     this->num_threads = num_threads;
     this->num_queues = num_queues;
     this->queue_size = queue_size;
 }
 
-ThreadPool::~ThreadPool() {
-    for(int i = 0; i < num_queues; i++)
+ThreadPool::~ThreadPool() 
+{
+    for(int i = 0; i < num_queues; i++) 
+    {
         free(queues[i]);
+    }
 }
 
-struct request_queue *ThreadPool::get_queue(int qid) {
+struct request_queue *ThreadPool::get_queue(int qid) 
+{
     return this->queues[qid];
 }
 
-static bplus_tree_worker *get_bplus_worker(struct request_queue *queue,  int pos) {
+static bplus_tree_worker *get_bplus_worker(struct request_queue *queue,  int pos) 
+{
     uint32_t p = (pos % queue->size) * sizeof(struct bplus_tree_worker);
     return (bplus_tree_worker*)(queue->data + p);
 }
 
-static bool queue_is_full(struct request_queue *queue) {
-    if(queue->tail + 1 == queue->front)
+static bool queue_is_full(struct request_queue *queue) 
+{
+    if(queue->tail + 1 == queue->front) {
         return true;
-    else 
+    } else {
         return false;
+    }
 }
 
-static bool queue_is_empty(struct request_queue *queue) {
-    if(queue->front == queue->tail)
+static bool queue_is_empty(struct request_queue *queue) 
+{
+    if(queue->front == queue->tail) {
         return true;
-    else 
+    } else { 
         return false;
+    }
 }
 
-static void process_bplus_request(struct request_queue *queue) {
+static void process_bplus_request(struct request_queue *queue) 
+{
     // DOTO work
     // Atomic operation tail++.
     __sync_add_and_fetch(&(queue->front), 1);
 }
 
 // Function to process request.
-static void process_request(struct thread_args* args) {
+static void process_request(struct thread_args* args) 
+{
     // Start to process request.
-    while(true) {
+    while(true) 
+    {
         Status tmp_status;
-        for(int i = args->start_qid; i <= args->end_qid; i++) {
+        for(int i = args->start_qid; i <= args->end_qid; i++) 
+        {
             struct request_queue *q_tmp = args->tp->get_queue(i);
             if( queue_is_empty(q_tmp) ) {
                 continue;
             }
             // Here to solve bplus work.
-            switch(args->tp->get_type()) {
+            switch(args->tp->get_type()) 
+            {
                 case TYPE_THREAD_POOL_BTREE:
                     process_bplus_request(q_tmp);
                 default:
@@ -73,7 +89,8 @@ static void process_request(struct thread_args* args) {
 }
 
 // Function to start thread.
-static void* thread_run(void *args_) {
+static void* thread_run(void *args_) 
+{
     struct thread_args *args = (struct thread_args *)args_;
     // TODO thread bind.
     // Here to process request.
@@ -82,7 +99,8 @@ static void* thread_run(void *args_) {
 }
 
 // Function to init queue, include malloc queue space.
-bool ThreadPool::init_queue() {
+bool ThreadPool::init_queue() 
+{
     uint32_t malloc_size;
     // head (to record info) + body (to save request)
     if (type == TYPE_THREAD_POOL_BTREE) {
@@ -91,7 +109,8 @@ bool ThreadPool::init_queue() {
     } else {
         return false;
     }
-    for(int i = 0; i < num_queues; i++) {
+    for(int i = 0; i < num_queues; i++) 
+    {
         queues[i] = (struct request_queue*)malloc(malloc_size);
         // ensure malloc fail
         assert(queues[i] != 0);
@@ -107,12 +126,14 @@ bool ThreadPool::init_queue() {
 }
 
 // Function to init thread.
-bool ThreadPool::init_thread() {
+bool ThreadPool::init_thread() 
+{
     // A process is responsible for multiple queues.
     if (num_queues >= num_threads) {
         this->one_queue_one_consumer = true;
         uint32_t span = num_queues / num_threads;
-        for(int i = 0, start_qid = 0; i < num_threads; i++, start_qid += span) {
+        for(int i = 0, start_qid = 0; i < num_threads; i++, start_qid += span) 
+        {
             struct thread_args *args = new thread_args();
             args->start_qid = start_qid;
             args->end_qid = start_qid + span - 1;
@@ -126,7 +147,8 @@ bool ThreadPool::init_thread() {
     // All queues are shared by all threads.
     } else {
         this->one_queue_one_consumer = false;
-        for(int i = 0; i < num_threads; i++) {
+        for(int i = 0; i < num_threads; i++) 
+        {
             struct thread_args *args = new thread_args();
             args->start_qid = 0, args->end_qid = num_queues - 1;
             args->tp = this;
@@ -138,7 +160,8 @@ bool ThreadPool::init_thread() {
     return true;
 }
 
-bool ThreadPool::init() {
+bool ThreadPool::init() 
+{
     bool res;
     // init queue
     res = init_queue();
@@ -150,12 +173,14 @@ bool ThreadPool::init() {
 }
 
 // Function to insert a worker into queue.
-bool ThreadPool::add_worker(uint8_t opt, uint32_t qid, void *object, Slice &key, Slice &value) {
+bool ThreadPool::add_worker(uint8_t opt, uint32_t qid, void *object, Slice &key, Slice &value) 
+{
     // b+tree type threadpool
     if (this->type == TYPE_THREAD_POOL_BTREE) {
         if(this->one_queue_one_consumer == true) {
             struct request_queue *q_tmp = this->queues[qid];
-            while(true) {
+            while(true) 
+            {
                 int tail = q_tmp->tail;
                 if( queue_is_full(q_tmp) ) {
                     // Queue if full.

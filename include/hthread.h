@@ -8,7 +8,7 @@
 #ifndef HTHREAD_H_
 #define HTHREAD_H_
 
-#define _GNU_SOURCE
+//#define _GNU_SOURCE
 #include "htype.h"
 #include "hhash.h"
 #include <stdio.h>
@@ -39,34 +39,39 @@ namespace hikv
 {
     class ThreadPool;
     // Bplus tree worker struct
-    struct bplus_tree_worker {
+    struct bplus_tree_worker 
+    {
         // TODO b+ tree
         uint8_t type;
         Slice key, value;
     };
     // HashTable worker struct
-    struct hash_table_worker {
+    struct hash_table_worker 
+    {
         HashTable *hash_table;
         Slice key, value;
         uint8_t type;
     };
     // Thread arg
-    struct thread_args {
+    struct thread_args 
+    {
         uint32_t start_qid;
         uint32_t end_qid;
         uint32_t queues_size;
         ThreadPool *tp;
     };
     // Thread request queue
-    typedef struct request_queue {
+    struct request_queue 
+    {
         uint32_t size;      // queue size
         uint32_t front;     // queue front = prepare to read
         uint32_t tail;      // queue tail = prepare to write
         uint32_t weight;    // queue weight for dispenser
         uint8_t data[0];    // ptr
-    } request_queue_t;
+    };
     //class threadpool
-    class ThreadPool {
+    class ThreadPool 
+    {
         private:
             struct request_queue *queues[MAX_NUM_QUEUES];
             pthread_t pthread_id[MAX_NUM_THREADS];

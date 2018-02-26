@@ -10,8 +10,10 @@
 #define HALGORITHM_H_
 #include "city.h"
 #include "citycrc.h"
-namespace hikv {
-    class Algorithm {
+namespace hikv 
+{
+    class Algorithm 
+    {
         public:
             //Function for hash64 interface     
             static uint64_t hash64(const char *key, size_t key_len) {

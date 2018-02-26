@@ -8,4 +8,7 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#define MAX_KEY_LENGTH 128
+#define MAX_VALUE_LENGTH 256
+
 #endif
