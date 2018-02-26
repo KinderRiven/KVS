@@ -25,7 +25,8 @@ static const char alphabet[] =
     			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     			"0123456789";
 
-struct GenerateDataConfig {
+struct GenerateDataConfig 
+{
     int key_size_shortest;          // key size range  
     int key_size_longest;       
     int value_size_shortest;        // value size range
@@ -48,8 +49,8 @@ class GenerateDataFactory
 };
 
 // Function to generate data.
-void GenerateDataFactory::generate_data() {
-    
+void GenerateDataFactory::generate_data() 
+{  
     ofstream os;
     os.open(config.output_filename);
     // std random lib
@@ -82,7 +83,8 @@ void GenerateDataFactory::generate_data() {
 }
 
 GenerateDataConfig config = {16, 16, 16, 128, "data_200M.in", 200 * 1024 * 1024};
-int main(int agrc, char *argv[]) {
+int main(int agrc, char *argv[]) 
+{
     GenerateDataFactory *factory = new GenerateDataFactory(config);
     factory->generate_data();
 }

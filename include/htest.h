@@ -12,6 +12,7 @@
 #include "htype.h"
 #include "hhash.h"
 #include "hikv.h"
+#include "bptree/hbptree.h"
 #include "hstatus.h"
 
 #include <fstream>
@@ -46,6 +47,15 @@ namespace hikv
             const char *data_in;
             int num_partitions;
             int num_buckets;
+    };
+    class TestBpTreeFactory
+    {
+        public:
+            TestBpTreeFactory(const char *data_in) \
+                : data_in(data_in) {};
+            void single_thread_test();
+        private:
+            const char *data_in;
     };
     class TestHiKVFactory 
     {
