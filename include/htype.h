@@ -14,7 +14,9 @@
 #include <assert.h>
 #include <algorithm>
 #include <stdlib.h>
+#include "config.h"
 #include <iostream>
+#include <sys/time.h>
 
 #ifndef NULL
     #define NULL 0
@@ -121,5 +123,17 @@ namespace hikv{
     inline bool operator == (const Slice &x, const Slice &y) {
         return ((x.size() == y.size()) && (memcmp(x.data(), y.data(), x.size()) == 0));
     }
+    class Config
+    {
+        public:
+            Config() { thread_id = 0;}
+            Config(uint32_t thread_id) : thread_id(thread_id) {};
+            uint32_t get_tid() 
+            {
+                return this->thread_id;
+            }
+        private:
+            uint32_t thread_id;
+    };
 }
 #endif

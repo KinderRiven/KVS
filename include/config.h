@@ -11,4 +11,23 @@
 #define MAX_KEY_LENGTH 128
 #define MAX_VALUE_LENGTH 256
 
+// define COLLECT_RDTSC we can collect operator time.
+#define COLLECT_RDTSC
+
+// define COLLECT_TIME
+#define COLLECT_TIME
+
+// define BACKEND_THREAD
+#define BACKEND_THREAD
+
+// define COLLECT_QUEUE
+#define COLLECT_QUEUE
+
+// define COLLECT_LOCK
+#define COLLECT_LOCK
+
+#define NUM_HT_PARTITIONS 32
+
+#define QUEUE_OPTIMIZATION
+
 #endif

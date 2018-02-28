@@ -42,8 +42,11 @@ static bool free_one_partition(struct hash_table_partition* partition)
 
 // Function to lock bucket.
 // bucket : which to be locked.
-static void lock_bucket(struct partition_bucket *bucket) 
+static void lock_bucket(struct partition_bucket *bucket, Status &status) 
 {
+#ifdef COLLECT_LOCK
+    bool collision = false;
+#endif
     while(true) 
     {
         // Modify the lowest bit to 
@@ -52,7 +55,13 @@ static void lock_bucket(struct partition_bucket *bucket)
         // compare & swap
         if (__sync_bool_compare_and_swap((volatile uint32_t *)&bucket->version, v, new_v))
 			break;
+    #ifdef COLLECT_LOCK
+        collision = true;
+    #endif
     }
+#ifdef COLLECT_LOCK
+    status.set_lock_collision(collision);
+#endif
 }
 
 // Function to unlock bucket.
@@ -63,6 +72,29 @@ static void unlock_bucket(struct partition_bucket *bucket)
     // if value is zero mean unlock before but now has to unlock
     assert( ( *(volatile uint32_t *)&bucket->version & 1U ) == 1U );
     ( *(volatile uint32_t *)&bucket->version )++;
+}
+
+// Function to persist KV
+static void persist_kv_data(void *p, uint32_t length)
+{
+// if in_memory_kv, only need to emulate longer write latency of NVM.
+#ifdef IN_MEMORY_KV
+	double factor = 1 + ((double)length) / 64 * 2 / 16;
+	uint64_t cpu_ticks = NVM_WRITE_LATENCY * 2.1 * factor;
+	uint64_t start = rdtsc();
+	while (rdtsc() < start + cpu_ticks) {}
+// if persist kv store, need to flush cache, add longer write latency, and guarantee ordering.
+#elif defined(HASHTABLE_PERSISTENCY)
+	size_t flush_count = length / 64;
+	size_t i = 0;
+	for (i = 0; i <= flush_count; i++)
+		clflush((uint8_t *)p + i * 64);
+	double factor = 1 + ((double)length) / 64 * 2 / 16;
+	uint64_t cpu_ticks = NVM_WRITE_LATENCY * 2.1 * factor;
+	uint64_t start = rdtsc();
+	while (rdtsc() < start + cpu_ticks) {}
+	sfence();		
+#endif  
 }
 
 // Function to read a bucket version
@@ -110,8 +142,9 @@ static uint32_t find_item_index(const char *key, size_t key_len, \
             *bucket = current_bucket;
             return i;
         }
-        if( current_bucket-> extra_bucket == NULL )
+        if( current_bucket-> extra_bucket == NULL ) {
             break;
+        }
         current_bucket = current_bucket->extra_bucket;
     }
     // 404 No Found.
@@ -132,8 +165,14 @@ static uint32_t find_empty_item_index(struct partition_bucket **bucket)
                 return i;
             }
         }
-        if( current_bucket-> extra_bucket == NULL )
-            break;
+        if( current_bucket->extra_bucket == NULL ) {
+            struct partition_bucket *new_bucket = \
+                (struct partition_bucket *) malloc (sizeof(struct partition_bucket));
+            memset(new_bucket, 0, sizeof(struct partition_bucket));
+            current_bucket->extra_bucket = new_bucket;                            
+            *bucket = new_bucket;
+            return 0;
+        }
         current_bucket = current_bucket->extra_bucket;
     }
     return NUM_ITEMS_PER_BUCKET;
@@ -147,14 +186,18 @@ static bool put_bucket_item(const char *key,  size_t key_len, \
 {
     uint64_t signature = Algorithm::hash64(key, key_len);
     bucket->items[item_index].signature = signature;
-    uint32_t malloc_size = sizeof(struct hash_table_item) + (key_len + value_len);
+    
+    // malloc is align 8 bytes
+    uint32_t malloc_size = sizeof(struct hash_table_item) + \
+        ( NVMKV_ROUNDUP8(key_len+ value_len) );
     struct hash_table_item* addr = (struct hash_table_item*) malloc ( malloc_size );
     bucket->items[item_index].addr = (uint64_t) addr;
-    
-    // Copy data to the hashtable item.
+
+    // vopy data to the hashtable item.
     addr->vec_length = HIKV_VEC_KV_LENGTH(key_len, value_len);   
     memcpy((void *)addr->data, (void *) key, key_len);
     memcpy((void *)(addr->data + key_len), (void *) value, value_len);
+    persist_kv_data(&addr->vec_length, sizeof(uint32_t) + key_len + value_len);
     return true;
 }
 
@@ -169,7 +212,8 @@ static bool update_bucket_item(const char *key, size_t key_len, \
     free(addr);
 
     // Malloc a new hashtable item.
-    uint32_t malloc_size = sizeof(struct hash_table_item) + (key_len + value_len);
+    uint32_t malloc_size = sizeof(struct hash_table_item) + \
+        ( NVMKV_ROUNDUP8(key_len+ value_len) );
     addr = (struct hash_table_item*) malloc ( malloc_size );
     addr->vec_length = HIKV_VEC_KV_LENGTH(key_len, value_len);
     memcpy((void *)addr->data, (void *) key, key_len);
@@ -207,6 +251,15 @@ HashTable::HashTable(uint32_t num_partitions, uint32_t num_buckets)
     }
 }
 
+// Print table message
+void HashTable::Print()
+{
+    printf("[HashTable]\n");
+    printf("[1]partition count : %d, [2] buckets/partition : %d, [3] item count : %d\n", \
+            this->num_partitions, this->num_buckets, \
+            this->num_partitions * this->num_buckets * NUM_ITEMS_PER_BUCKET);
+}
+
 // Destruct Function.
 HashTable::~HashTable() 
 {
@@ -232,8 +285,14 @@ uint16_t HashTable::calc_bucket_index(const char *key, size_t key_len)
 // Put key-value into hashtable
 // When we put kv in a bucket, we need to lock the bucket
 Status HashTable::Put(Slice &s_key, Slice &s_value) 
-{ 
+{
     Status status;
+    // save status
+#ifdef COLLECT_RDTSC
+    uint64_t st_start, st_end;
+#elif defined COLLECT_TIME
+    struct timeval begin_time, end_time;
+#endif
     // Here to calculate partition index.
     const char *key = s_key.data();
     size_t key_len = s_key.size();
@@ -250,22 +309,81 @@ Status HashTable::Put(Slice &s_key, Slice &s_value)
     // Here to calculate bucket index.
     struct partition_bucket *bucket = partitions[partition_index]->buckets + bucket_index;
     struct partition_bucket *tmp_bucket = bucket;
-    
-    // Lock bucket prepare to put key-value
-    lock_bucket(bucket);
+
+ // [0] collect lock bucket time
+#ifdef COLLECT_RDTSC
+    st_start = rdtsc();
+#elif defined COLLECT_TIME
+    gettimeofday(&begin_time, NULL);
+#endif
+    // lock bucket prepare to put key-value
+    lock_bucket(bucket, status);
+#ifdef COLLECT_RDTSC
+    st_end = rdtsc();
+    status.append_rdt(st_end - st_start);
+#elif defined COLLECT_TIME 
+    gettimeofday(&end_time, NULL);
+    status.append_rdt((end_time.tv_sec - begin_time.tv_sec) * 1000000 + \
+            (end_time.tv_usec - begin_time.tv_usec));
+#endif
+
+// [1] collect find if exist item
+#ifdef COLLECT_RDTSC
+    st_start = rdtsc();
+#elif defined COLLECT_TIME
+    gettimeofday(&begin_time, NULL);
+#endif
+    // find item if exist
     uint32_t item_index = find_item_index(key, key_len, &tmp_bucket);
-    
+#ifdef COLLECT_RDTSC
+    st_end = rdtsc();
+    status.append_rdt(st_end - st_start);
+#elif defined COLLECT_TIME
+    gettimeofday(&end_time, NULL);
+    status.append_rdt((end_time.tv_sec - begin_time.tv_sec) * 1000000 + \
+            (end_time.tv_usec - begin_time.tv_usec));
+#endif
+
     bool res;
     if (item_index != NUM_ITEMS_PER_BUCKET) {
-        // Find so we need to update.
+        // find so we need to update.
         res = update_bucket_item(key, key_len, value, value_len, tmp_bucket, item_index);
-        bucket = tmp_bucket;
-        status.set_msg("Found and Update.");
+        // status.set_msg("Found and Update.");
     } else {
-        item_index = find_empty_item_index(&bucket);
+    // [2] collect find empty item time.
+    #ifdef COLLECT_RDTSC
+        st_start = rdtsc();
+    #elif defined COLLECT_TIME
+        gettimeofday(&begin_time, NULL);
+    #endif
+        // Here to find empty item.
+        item_index = find_empty_item_index(&tmp_bucket);
+    #ifdef COLLECT_RDTSC
+        st_end = rdtsc();
+        status.append_rdt(st_end - st_start);
+    #elif defined COLLECT_TIME
+        gettimeofday(&end_time, NULL);
+        status.append_rdt((end_time.tv_sec - begin_time.tv_sec) * 1000000 + \
+                (end_time.tv_usec - begin_time.tv_usec));
+    #endif
         if(item_index != NUM_ITEMS_PER_BUCKET) {
-            res = put_bucket_item(key, key_len, value, value_len, bucket, item_index);
-            status.set_msg("Not Found and Put.");
+        // [3] collect put bucket item time
+        #ifdef COLLECT_RDTSC
+            st_start = rdtsc();
+        #elif defined COLLECT_TIME
+            gettimeofday(&begin_time, NULL);
+        #endif
+            // put bucket item
+            res = put_bucket_item(key, key_len, value, value_len, tmp_bucket, item_index);
+            // status.set_msg("Not Found and Put.");
+        #ifdef COLLECT_RDTSC
+            st_end = rdtsc();
+            status.append_rdt(st_end - st_start);
+        #elif defined COLLECT_TIME
+            gettimeofday(&end_time, NULL);
+            status.append_rdt((end_time.tv_sec - begin_time.tv_sec) * 1000000 + \
+                    (end_time.tv_usec - begin_time.tv_usec));
+        #endif
         } else {
             // TODO no space operator.
             res = false;
@@ -273,10 +391,39 @@ Status HashTable::Put(Slice &s_key, Slice &s_value)
         }
     }
     status.set_ok(res);
-    // TODO Here to clflsh data in nvm to persist data.
-    persist_data((void *)bucket, 16);
+// [4] collect persist data time
+#ifdef COLLECT_RDTSC
+    st_start = rdtsc();
+#elif defined COLLECT_TIME
+    gettimeofday(&begin_time, NULL);
+#endif
+    // Here to clflsh data in nvm to persist data.
+    persist_data((void *)(tmp_bucket->items + item_index), BUCKET_ITEM_LENGTH);
+#ifdef COLLECT_RDTSC
+    st_end = rdtsc();
+    status.append_rdt(st_end - st_start);
+#elif defined COLLECT_TIME
+    gettimeofday(&end_time, NULL);
+    status.append_rdt((end_time.tv_sec - begin_time.tv_sec) * 1000000 + \
+            (end_time.tv_usec - begin_time.tv_usec));
+#endif
+
+// [5] collect unlock bucket time
+#ifdef COLLECT_RDTSC
+    st_start = rdtsc();
+#elif defined COLLECT_TIME
+    gettimeofday(&begin_time, NULL);
+#endif
     // Unlock bucket.
     unlock_bucket(bucket);
+#ifdef COLLECT_RDTSC
+    st_end = rdtsc();
+    status.append_rdt(st_end - st_start);
+#elif defined COLLECT_TIME
+    gettimeofday(&end_time, NULL);
+    status.append_rdt((end_time.tv_sec - begin_time.tv_sec) * 1000000 + \
+            (end_time.tv_usec - begin_time.tv_usec));
+#endif
     return status;
 }
 
@@ -342,7 +489,7 @@ Status HashTable::Delete(Slice &s_key)
     struct partition_bucket *bucket = partitions[partition_index]->buckets + bucket_index;
    
     // Lock bucket prepare to put key-value
-    lock_bucket(bucket);
+    lock_bucket(bucket, status);
     uint32_t item_index = find_item_index(key, key_len, &bucket);
 
     if (item_index != NUM_ITEMS_PER_BUCKET) {

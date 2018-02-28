@@ -22,22 +22,24 @@
 #define HIKV_VEC_KV_LENGTH(key_length, value_length) (((uint32_t)(key_length) << 24) | (uint32_t)(value_length))
 
 // the count of items of per bucker.
-#define NUM_ITEMS_PER_BUCKET 512
+#define NUM_ITEMS_PER_BUCKET 15
 // the max partitions of per hashtable.
 #define MAX_PARTITIONS_PER_HT 4096
 
-        
 namespace hikv 
 {
     // struct hash table's item
+    // need to be persised, and align 8 bytes.
     struct hash_table_item 
     {
         uint32_t vec_length;      // key_size:[0~7], value_size:[8~31]
         uint8_t data[0];
     };
 
-    // struct bucket's item
-    struct bucket_item 
+    // struct bucket's item (16 Bytes)
+    // need to be persised, and align 8 bytes.
+    #define BUCKET_ITEM_LENGTH 16
+    struct bucket_item
     {
         uint64_t signature;
         uint64_t addr;
@@ -67,6 +69,7 @@ namespace hikv
             Status Get(Slice &key, Slice &value);
             Status Put(Slice &key, Slice &value);
             Status Delete(Slice &key);
+            void Print();
         private:
             uint16_t calc_partition_index(const char *key, size_t key_size);
             uint16_t calc_bucket_index(const char *key, size_t key_size);

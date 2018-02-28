@@ -45,10 +45,12 @@ void TestHashTableFactory::single_thread_test()
                     end_time.tv_usec - begin_time.tv_usec) / 1000000.0;
         time_count += exe_time;
     }
-    // Show result.
+    // show result
     printf("[Result] opt count : %d, time_count : %.5f s, iops : %.5f\n", \
             opt_count, time_count, (double) opt_count / time_count);
-    for(int i = vec_key.size() - 1; i >= 0; i--)
+    // validation
+    int vec_size = vec_key.size();
+    for(int i = vec_size - 1; i >= 0; i--)
     {
         Slice key = Slice(vec_key[i]);
         Slice value;

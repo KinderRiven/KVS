@@ -21,6 +21,12 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <string>
+#include <cstdlib>
+#include <limits>
+#include <random>
+#include <algorithm>
+#include <cstring>
 
 #define MAX_TEST_THREAD 36
 
@@ -35,6 +41,7 @@ namespace hikv
     {
         int thread_id;
         HiKV *hikv;
+        BpTree *bp;
     };
     class TestHashTableFactory 
     {
@@ -51,35 +58,41 @@ namespace hikv
     class TestBpTreeFactory
     {
         public:
-            TestBpTreeFactory(const char *data_in) \
-                : data_in(data_in) {};
-            void single_thread_test();
-        private:
-            const char *data_in;
-    };
-    class TestHiKVFactory 
-    {
-        public:
-            TestHiKVFactory(const char *data_in, 
-                    // hashtable
-                    int num_ht_partitions, \
-                    int num_ht_buckets, \
-                    // threadpool
-                    uint32_t num_server_threads, \
-                    uint32_t num_backend_threads, \
-                    uint32_t num_backend_queues);
+            TestBpTreeFactory(const char *data_in, int num_kvs, \
+                    int max_key_length, int max_value_length, \
+                    int num_threads);
             void single_thread_test();
             void multiple_thread_test();
         private:
             pthread_t thread_id[MAX_TEST_THREAD];
+            BpTree *bp;
             const char *data_in;
+            int num_kvs;
+            int max_key_length;
+            int max_value_length;
+            int num_threads;
+    };
+    class TestHiKVFactory 
+    {
+        public:
+            TestHiKVFactory(const char *data_in, int num_kvs, \
+                    int max_key_length, int max_value_length, \
+                    // threadpool
+                    uint32_t num_server_threads, \
+                    uint32_t num_backend_threads);
+            void single_thread_test();
+            void multiple_thread_test();
+        private:
+            pthread_t thread_id[MAX_TEST_THREAD];
             HiKV *hikv;
+            const char *data_in;   
+            int num_kvs;
             int num_ht_partitions;
             int num_ht_buckets;
+            int max_key_length;
+            int max_value_length;
             uint32_t num_server_threads;
-            uint32_t num_backend_threads;
-            uint32_t num_backend_queues;
-            
+            uint32_t num_backend_threads;        
     };
 }
 

@@ -15,6 +15,9 @@
 #define NVM_WRITE_LATENCY 600
 // We need to emulate longer write latency of NVM
 // #define IN_MEMORY_KV
+#define HASHTABLE_PERSISTENCY
+// Used to align
+#define NVMKV_ROUNDUP8(x) (((x) + 7UL) & (~7UL))
 
 // CPU barrier.
 #define memory_barrier() asm volatile("" ::: "memory")
@@ -26,8 +29,7 @@ static inline void clflush(volatile void *__p)
 	asm volatile("clflush (%0)" :: "r"(__p));
 }
 
-static inline uint64_t rdtsc (void) 
-{
+static inline uint64_t rdtsc (void) {
     unsigned l, u;
     __asm__ __volatile__("rdtsc" : "=a" (l), "=d" (u));
     return ((uint64_t)u << 32) | l;
