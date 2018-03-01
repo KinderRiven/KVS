@@ -23,12 +23,20 @@ ThreadPool::ThreadPool(uint8_t type, uint32_t num_producers, \
 void ThreadPool::Print()
 {
     printf("[ThreadPool]:\n");
-    printf("[1] num producers : %2d, [2] num_consumers : %2d\n", this->num_producers, this->num_consumers);
-    printf("[3] num queues    : %2d, [4] queue size    : %2d\n", this->num_queues, this->queue_size);
+    printf("[1] num producers : %2d, [2] num_consumers : %2d\n", \
+            this->num_producers, this->num_consumers);
+    printf("[3] num queues    : %2d, [4] queue size    : %2d\n", \
+            this->num_queues, this->queue_size);
     printf("[5] one queue one consumers : ");
-    this->one_queue_one_consumer == true ? printf("true\n") : printf("false\n");
+    this->one_queue_one_consumer == true ? printf("Yes\n") : printf("No\n");
     printf("[6] one queue one producer  : ");
-    this->one_queue_one_producer == true ? printf("true\n") : printf("false\n");
+    this->one_queue_one_producer == true ? printf("Yes\n") : printf("No\n");
+    printf("[7] queue optimization : ");
+#ifdef QUEUE_OPTIMIZATION
+    printf("Yes\n");
+#else
+    printf("No\n");
+#endif
 }
 
 ThreadPool::~ThreadPool() 
@@ -129,6 +137,16 @@ static void* thread_run(void *args_)
 {
     struct thread_args *args = (struct thread_args *)args_;
     // TODO thread bind.
+#ifdef THREAD_CPU_BIND
+    cpu_set_t mask;
+    // Here to bind thread into CPU set.
+	CPU_ZERO(&mask);
+    CPU_SET((int)args->thread_id + args->num_producers, &mask);
+
+    if (pthread_setaffinity_np(pthread_self(), sizeof(mask), &mask) < 0) {
+		printf("threadpool, set thread affinity failed.\n");
+	}
+#endif
     // Here to process request.
     process_request(args);
     return NULL;
@@ -173,6 +191,9 @@ bool ThreadPool::init_thread()
         for(int i = 0, start_qid = 0; i < num_consumers; i++, start_qid += span) 
         {
             struct thread_args *args = new thread_args();
+            // set thread id
+            args->thread_id = i;
+            args->num_producers = this->num_producers;
             // thread should to scan the queue[start, end]
             args->start_qid = start_qid;
             args->end_qid = start_qid + span - 1;
@@ -274,7 +295,8 @@ bool ThreadPool::add_worker(uint8_t opt, uint32_t qid, void *object, KEY &key, D
                     write_index = q_tmp->write_index;
                     max_write_index = q_tmp->max_write_index;
                     // if is full
-                    if(index_to_pos(q_tmp, write_index + 1) == index_to_pos(q_tmp, max_write_index)) {
+                    if(index_to_pos(q_tmp, write_index + 1) == index_to_pos(q_tmp, max_write_index)) 
+                    {
                         is_full = true;
                         break;
                     }

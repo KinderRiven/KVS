@@ -80,7 +80,6 @@ Status HiKV::Put(Slice &key, Slice &value, Config &config)
     status.append_rdt((end_time.tv_sec - begin_time.tv_sec) * 1000000 + \
             (end_time.tv_usec - begin_time.tv_usec));
 #endif
-
     // Backend Thread
     KEY bp_key;
     DATA bp_data;

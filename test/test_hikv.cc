@@ -43,6 +43,7 @@ static void* thread_run(void *args_)
 #if ((defined COLLECT_RDTSC) || (defined COLLECT_TIME))
     vec_status[tid].push_back(status);
 #endif
+        // add exe time to time sum.
         double exe_time = (double)(1000000.0 * ( end_time.tv_sec - begin_time.tv_sec ) + \
                     end_time.tv_usec - begin_time.tv_usec) / 1000000.0;
         time_count += exe_time;
@@ -256,9 +257,9 @@ void TestHiKVFactory::multiple_thread_test()
         }
     }
     // Here to print result
-    printf("[queue collision count] : %d [lock collision count] : %d\n", \
-        queue_collision_times, lock_collision_times);
-    for(int i = 0; i < r_st; i++) 
+    printf("[queue collision count] : %d [lock collision count] : %d [bplus collision count] %d\n", \
+        queue_collision_times, lock_collision_times, hikv->get_bp()->collision_times);
+    for(int i = 0; i < r_st; i++)
     {
         printf("[%02d]", i);
         printf("[count : %5d cost : %10llu avg : %8.2f]", \
@@ -280,5 +281,5 @@ void TestHiKVFactory::multiple_thread_test()
 
 void TestHiKVFactory::single_thread_test() 
 {    
-    
+
 }

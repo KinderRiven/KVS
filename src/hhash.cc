@@ -21,12 +21,15 @@ static struct hash_table_partition* malloc_one_partition(uint32_t num_buckets)
     
     //malloc one partition
     struct hash_table_partition* p_partition = \
-            ( hash_table_partition* )malloc( sizeof( struct hash_table_partition ) );
+            ( struct hash_table_partition* )malloc( sizeof( struct hash_table_partition ) );
     assert(p_partition != NULL);
+    memset(p_partition, 0, sizeof(struct hash_table_partition));
+    
     
     //malloc some buckets
     p_partition->buckets = ( struct partition_bucket* )malloc( total_buckets_size );
     assert(p_partition->buckets != NULL);
+    memset(p_partition->buckets, 0, total_buckets_size);
     return p_partition;
 }
 
@@ -34,8 +37,9 @@ static struct hash_table_partition* malloc_one_partition(uint32_t num_buckets)
 // [return] : the ptr of partition.
 static bool free_one_partition(struct hash_table_partition* partition) 
 {
-    if(partition == NULL)
+    if(partition == NULL) {
         return false;
+    }
     free(partition->buckets);
     return true;
 }
@@ -191,6 +195,8 @@ static bool put_bucket_item(const char *key,  size_t key_len, \
     uint32_t malloc_size = sizeof(struct hash_table_item) + \
         ( NVMKV_ROUNDUP8(key_len+ value_len) );
     struct hash_table_item* addr = (struct hash_table_item*) malloc ( malloc_size );
+    // memset item 0
+    memset(addr, 0, malloc_size);
     bucket->items[item_index].addr = (uint64_t) addr;
 
     // vopy data to the hashtable item.
@@ -215,6 +221,8 @@ static bool update_bucket_item(const char *key, size_t key_len, \
     uint32_t malloc_size = sizeof(struct hash_table_item) + \
         ( NVMKV_ROUNDUP8(key_len+ value_len) );
     addr = (struct hash_table_item*) malloc ( malloc_size );
+    memset(addr, 0, malloc_size);
+
     addr->vec_length = HIKV_VEC_KV_LENGTH(key_len, value_len);
     memcpy((void *)addr->data, (void *) key, key_len);
     memcpy((void *)(addr->data + key_len), (void *) value, value_len);
@@ -245,8 +253,7 @@ HashTable::HashTable(uint32_t num_partitions, uint32_t num_buckets)
     this->num_partitions = num_partitions;
     this->num_buckets = num_buckets;
     // malloc partitions
-    for(int i = 0; i < num_partitions; i++) 
-    {
+    for(int i = 0; i < num_partitions; i++) {
         this->partitions[i] = malloc_one_partition(num_buckets);
     }
 }
@@ -387,7 +394,7 @@ Status HashTable::Put(Slice &s_key, Slice &s_value)
         } else {
             // TODO no space operator.
             res = false;
-            status.set_msg("Error No Space");
+            // status.set_msg("Error No Space");
         }
     }
     status.set_ok(res);
@@ -398,7 +405,9 @@ Status HashTable::Put(Slice &s_key, Slice &s_value)
     gettimeofday(&begin_time, NULL);
 #endif
     // Here to clflsh data in nvm to persist data.
-    persist_data((void *)(tmp_bucket->items + item_index), BUCKET_ITEM_LENGTH);
+    if(status.is_ok()) {
+        persist_data((void *)(tmp_bucket->items + item_index), BUCKET_ITEM_LENGTH);
+    }
 #ifdef COLLECT_RDTSC
     st_end = rdtsc();
     status.append_rdt(st_end - st_start);

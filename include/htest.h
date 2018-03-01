@@ -42,18 +42,25 @@ namespace hikv
         int thread_id;
         HiKV *hikv;
         BpTree *bp;
+        HashTable *ht;
     };
     class TestHashTableFactory 
     {
         public:
-            TestHashTableFactory(const char *data_in, int num_partitions, int num_buckets) \
-                : data_in(data_in), num_partitions(num_partitions), num_buckets(num_buckets) {};
+            TestHashTableFactory(const char *data_in, int num_kvs, int num_threads, \
+                    int max_key_length, int max_value_length);
             void single_thread_test();
             void multiple_thread_test();
         private:
-            const char *data_in;
-            int num_partitions;
-            int num_buckets;
+            pthread_t thread_id[MAX_TEST_THREAD];
+            HashTable *ht;
+            const char *data_in;   
+            int num_kvs;
+            int num_ht_partitions;
+            int num_ht_buckets;
+            int max_key_length;
+            int max_value_length;
+            uint32_t num_threads;
     };
     class TestBpTreeFactory
     {

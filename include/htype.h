@@ -49,6 +49,7 @@ namespace hikv{
             Slice() 
             {
                 data_ = (char *)malloc(SLICE_SIZE);
+                memset(data_, 0, SLICE_SIZE);
                 size_ = 0;
             };
             
@@ -62,6 +63,7 @@ namespace hikv{
 
             Slice(const char *d, size_t s) 
             {
+                assert(s >= 0 && s < SLICE_SIZE);
                 data_ = (char *)malloc(SLICE_SIZE);
                 size_ = s;
                 memcpy((void *)data_, (void *)d, size_);
@@ -71,6 +73,7 @@ namespace hikv{
             {
                 data_ = (char *)malloc(SLICE_SIZE);
                 size_ = s.size();
+                assert(size_ >= 0 && size_ < SLICE_SIZE); 
                 memcpy((void *)data_, (void *)s.data(), size_);
             }
 
@@ -78,39 +81,45 @@ namespace hikv{
             {
                 data_ = (char *)malloc(SLICE_SIZE);
                 size_ = strlen(s);
+                assert(size_ >= 0 && size_ < SLICE_SIZE);
                 memcpy((void *)data_, (void *)s, size_);
             }
 
-            ~Slice() {
-                free(data_);
-            }
+            ~Slice() { free(data_); }
             
             // Return value.
-            const char* data() const {
+            const char* data() const 
+            {
                 return data_;
             }
-            size_t size() const {
+            size_t size() const 
+            {
                 return size_;
             }
             // Set value.
-            void set(const char *data, size_t size) {
+            void set(const char *data, size_t size) 
+            {
                 size_ = size;
                 memcpy((void *)data_, (void *)data, size_);
             }
-            void set(const char *data) {
+            void set(const char *data) 
+            {
                 size_ = strlen(data_);
                 memcpy((void *)data_, (void *)data, size_);
             }
-            void set(std::string s) {
+            void set(std::string s) 
+            {
                 size_ = s.size();
                 memcpy((void *)data_, (void *)s.data(), size_);
             }
             // Overload operator.
-            char operator[](size_t n) const {
+            char operator[](size_t n) const 
+            {
                 assert(n < size());
                 return data_[n];
             }
-            friend std::ostream& operator << (std::ostream &output, Slice &s) {
+            friend std::ostream& operator << (std::ostream &output, Slice &s) 
+            {
                 for(int i = 0; i < s.size(); i++) {
                     output << s.data()[i];
                 }
@@ -120,7 +129,8 @@ namespace hikv{
             size_t size_;
             char *data_;
     };
-    inline bool operator == (const Slice &x, const Slice &y) {
+    inline bool operator == (const Slice &x, const Slice &y) 
+    {
         return ((x.size() == y.size()) && (memcmp(x.data(), y.data(), x.size()) == 0));
     }
     class Config

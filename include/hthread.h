@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <sched.h>
 #include <unistd.h>
 
 // threads
@@ -36,7 +37,7 @@
 #define TYPE_WORKER_GET 2
 #define TYPE_WORKER_DEL 3
 
-#define COLLISION_FAIL_TIMES
+#define COLLISION_FAIL_TIMES 16
 
 namespace hikv
 {
@@ -59,9 +60,11 @@ namespace hikv
     // Thread arg
     struct thread_args 
     {
+        uint32_t thread_id;
         uint32_t start_qid;
         uint32_t end_qid;
         uint32_t queues_size;
+        uint32_t num_producers;
         bool one_queue_one_consumer;
         ThreadPool *tp;
     };
