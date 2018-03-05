@@ -5,199 +5,142 @@
 using namespace std;
 using namespace hikv;
 
-// opt type
-static vector<int> vec_opt[MAX_TEST_THREAD];
-static vector<string> vec_key[MAX_TEST_THREAD];
-static vector<string> vec_value[MAX_TEST_THREAD];
-static double vec_iops[MAX_TEST_THREAD];
-static vector<Status> vec_status[MAX_TEST_THREAD];
-
 static void* thread_run(void *args_) 
 {    
     struct test_thread_args *args = (struct test_thread_args *)args_;
-    int tid = args->thread_id;
-    int opt_count = vec_opt[tid].size();
-    Status status;
-    HiKV *hikv = args->hikv;
     struct timeval begin_time, end_time;    // count time
+    
+    Status status;
+    HiKV *hikv = (HiKV*)args->object;
+    TestHiKVFactory *factory = (TestHiKVFactory*)args->factory;
+    TestDataSet *data_set = factory->data_set;
+    
+    int tid = args->thread_id;
+    int opt_count = data_set->vec_opt[tid].size();
     double time_count = 0;
     
-    for(int i = 0; i < opt_count; i++) 
+    for(int i = 0; i < opt_count; i++)
     {
-        Slice s_key = Slice(vec_key[tid][i]);
-        Slice s_value = Slice(vec_value[tid][i]);
+        Slice s_key = Slice(data_set->vec_key[tid][i]);
+        Slice s_value = Slice(data_set->vec_value[tid][i]);
         Config config = Config(tid);
         gettimeofday(&begin_time, NULL);
-        switch(vec_opt[tid][i]) 
+        switch(data_set->vec_opt[tid][i]) 
         {
             case TEST_PUT:
                 status = hikv->Put(s_key, s_value, config);
                 break;
+            case TEST_GET:
+                status = hikv->Get(s_key, s_value, config);
+            case TEST_DEL:
+                status = hikv->Delete(s_key, config);
             default:
-                cout << "Illegal Parameters!" << endl;
+                cout << "[ERROR] Illegal Parameters!" << endl;
                 break;
         }
         assert(status.is_ok() == 1);
         gettimeofday(&end_time, NULL);
+
 // collect rdtsc time
 #if ((defined COLLECT_RDTSC) || (defined COLLECT_TIME))
-    vec_status[tid].push_back(status);
+    factory->vec_status[tid].push_back(status);
 #endif
+
         // add exe time to time sum.
         double exe_time = (double)(1000000.0 * ( end_time.tv_sec - begin_time.tv_sec ) + \
                     end_time.tv_usec - begin_time.tv_usec) / 1000000.0;
         time_count += exe_time;
     }
-    printf("[Thread %d] opt count : %d, time_count : %.5f s, iops : %.5f\n", \
+    printf("[Thread %2d] Opt Count : %8d, Time Count : %8.5f s, IOPS : %8.5f\n", \
             tid, opt_count, time_count, (double) opt_count / time_count);
-    vec_iops[tid] = (double) opt_count / time_count;
+    factory->arr_iops[tid] = (double) opt_count / time_count;
     pthread_exit(0);
 }
 
-// Function to read data into vector.
-static int read_data(const char *data_in, int num_kvs, \
-                int max_key_length, int max_value_length, int num_threads) 
-{
-    int opt, count = 0;
-    int all = 0;
-    string key, value;
-    if(data_in != NULL) 
-    {
-        ifstream in(data_in);
-        while(in >> opt) 
-        {
-            in >> key >> value;
-            vec_opt[count].push_back(opt);
-            vec_key[count].push_back(key);
-            vec_value[count].push_back(value);
-            count = (count + 1) % num_threads;
-            all++;
-        }
-        in.close();
-    } 
-    else if(num_kvs > 0) 
-    {
-        static const char alphabet[] =
-    			"abcdefghijklmnopqrstuvwxyz"
-    			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    			"0123456789";
-        random_device rd;
-        mt19937 gen(rd());
-        uniform_int_distribution<> range1( max_key_length, max_key_length);
-        uniform_int_distribution<> range2( max_value_length / 5, max_value_length );
-        uniform_int_distribution<> range3( 0, sizeof(alphabet) / sizeof(*alphabet) - 2 );
-        for(int i = 0; i < num_kvs; i++) 
-        {
-            int key_length = range1(gen);
-            int value_length = range2(gen);
-            string s_key = "", s_value = "";
-            
-            for(int i = 0; i < key_length; i++) {
-                s_key += alphabet[range3(gen)];
-            }
-            for(int i = 0; i < value_length; i++) {
-                s_value += alphabet[range3(gen)];
-            }
-            vec_opt[count].push_back(1);
-            vec_key[count].push_back(s_key);
-            vec_value[count].push_back(s_value);
-            count = (count + 1) % num_threads;
-            all++;
-        }
-    }
-    return all;
-}
-
 // Function to struct.
-TestHiKVFactory::TestHiKVFactory(const char *data_in, int num_kvs, \
-                    int max_key_length, int max_value_length, \
-                    uint32_t num_server_threads, \
-                    uint32_t num_backend_threads)
+TestHiKVFactory::TestHiKVFactory(HiKV *hikv, TestDataSet *data_set, \
+                    int num_server_threads, int num_backend_threads, \
+                    int key_length, int value_length)
 {
-    this->num_kvs = num_kvs;
-    this->data_in = data_in;
-    this->max_key_length = max_key_length;
-    this->max_value_length = max_value_length;
+    this->hikv = hikv;
+    this->data_set = data_set;
+    this->key_length = key_length;
+    this->value_length = value_length;
     this->num_server_threads = num_server_threads;
     this->num_backend_threads = num_backend_threads;
     this->num_ht_partitions =  NUM_HT_PARTITIONS;
 }
 
-// Function to use single thread test
-void TestHiKVFactory::multiple_thread_test() 
+void TestHiKVFactory::thread_init()
 {
-    double time_count = 0;
-    int opt_count = 0;
-    struct timeval begin_time, end_time;    // count time
-    // Read data
-    printf("[INFO] Waiting Data\n");
-    opt_count = read_data(data_in, num_kvs, max_key_length, max_value_length, num_server_threads);
-    
-    // calculate bucket count
-    this->num_ht_buckets = opt_count * 2 / (this->num_ht_partitions * NUM_ITEMS_PER_BUCKET);
-    hikv = new HiKV(128, 1024, this->num_ht_partitions, this->num_ht_buckets, \
-                this->num_server_threads, \
-                this->num_backend_threads);
-    // Create Put thread
-    gettimeofday(&begin_time, NULL);
     for(int i = 0; i < num_server_threads; i++) 
     {
         struct test_thread_args *args = new test_thread_args();
         args->thread_id = i;
-        args->hikv = hikv;
+        args->object = (void *)hikv;
+        args->factory = (void *)this;
         pthread_create(thread_id + i, NULL, thread_run, args);
     }
 
     // Join thread.
-    printf("[INFO] Waiting thread exit\n");
+    printf("[RUNNING] Waiting thread to exit...\n");
     for(int i = 0; i < num_server_threads; i++) 
     {
         pthread_join(thread_id[i], NULL);
     }
-    gettimeofday(&end_time, NULL);
-    time_count = (double)(1000000.0 * ( end_time.tv_sec - begin_time.tv_sec ) + \
-                    end_time.tv_usec - begin_time.tv_usec) / 1000000.0;
-    
-    // show result
-    double sum_iops = 0;
-    for(int i = 0; i < num_server_threads; i++) {
-        sum_iops += vec_iops[i];
-    }
-    printf("[Result] opt count : %d, time_count : %.5f s, iops : %.5f\n", \
-            opt_count, time_count, sum_iops);
+}
 
-    // confire
-    printf("[INFO] HashTable Verification\n");
+void TestHiKVFactory::verify_hashtable()
+{
+    printf("[RUNNING] Validating HashTable...\n");
     Config config;
     for(int i = 0; i < num_server_threads; i++) 
     {
-        int vec_size = vec_key[i].size();
+        int vec_size = data_set->vec_key[i].size();
         for(int j = 0; j < vec_size; j++) 
         {
-            Slice key = Slice(vec_key[i][j]);
+            Slice key = Slice(data_set->vec_key[i][j]);
             Slice value;
             Status status = hikv->Get(key, value, config);
+            assert(value == data_set->vec_value[i][j]);
             assert(status.is_ok() == true);
         }
     }
-#ifdef BACKEND_THREAD
-    printf("[INFO] BplusTree Verification\n"); 
-    BpTree *bp = hikv->get_bp();
+    printf("[OK] HashTable status OK!\n");
+}
+
+void TestHiKVFactory::verify_bptree()
+{
+    printf("[RUNNING] Validating BpTree...\n"); 
+    HBpTree *bp = hikv->get_bp();
     for(int i = 0; i < num_server_threads; i++) 
     {
-        int vec_size = vec_key[i].size();
+        int vec_size = data_set->vec_key[i].size();
         for(int j = 0; j < vec_size; j++) 
         {
-            KEY key = KEY(vec_key[i][j]);
+            KEY key = KEY(data_set->vec_key[i][j]);
             DATA data;
+            
             bool res = bp->Get(key, data);
+            struct hash_table_item *kv_item = (struct hash_table_item *)data.value_addr;
+            size_t key_length = HIKV_KEY_LENGTH(kv_item->vec_length);
+            size_t value_length = HIKV_VALUE_LENGTH(kv_item->vec_length);
+            
+            Slice h_key = Slice(data_set->vec_key[i][j]);
+            Slice h_value = Slice(data_set->vec_value[i][j]);
+            Slice b_key = Slice((const char*)kv_item->data, key_length);
+            Slice b_value = Slice((const char*)kv_item->data + (NVMKV_ROUNDUP8(key_length)), value_length);
+            
+            assert(h_key == b_key);
+            assert(h_value == b_value);
             assert(res == true);
         }
     }
-    printf("[END]\n");
-#endif
+    printf("[OK] BpTree status OK!\n");
+}
 
-#if ((defined COLLECT_RDTSC) || (defined COLLECT_TIME))
+void TestHiKVFactory::data_analysis()
+{
     int r_st = 8;               // parameter we use
     int op_count[16] = {0};     // all operator count
     uint64_t op_sum[16] = {0};  // all operator cost
@@ -215,19 +158,13 @@ void TestHiKVFactory::multiple_thread_test()
         for(int j = 0; j < vec_size; j++) 
         {
             Status st = vec_status[i][j];
-            queue_collision_times += st.get_queue_collision();
-            // if (st.get_queue_collision()) {
-            //     st.print_rdt(0, 16, 0);
-            // }
-            lock_collision_times += st.get_lock_collision();
-            // if (st.get_lock_collision()) {
-            //     st.print_rdt(0, 16, 0);
-            // }
-            // st.print_rdt(0, 16, 0);
+            queue_collision_times += st.queue_collision;
+            lock_collision_times += st.hashtable_collision;
             for(int k = 0; k < r_st; k++) 
             {
                 uint64_t rdt = st.get_rdt(k);
-                if(rdt < filter) {
+                if(rdt < filter) 
+                {
                     op_count[k]++;
                     op_sum[k] += rdt;
                 }
@@ -249,7 +186,7 @@ void TestHiKVFactory::multiple_thread_test()
             for(int k = 0; k < r_st; k++) 
             {
                 uint64_t rdt = st.get_rdt(k);
-                if((double)rdt >= limit_t[k]) {
+                if ( (double)rdt >= limit_t[k] ) {
                     over_count[k]++;
                     over_sum[k] += (uint64_t) rdt;
                 }
@@ -257,29 +194,75 @@ void TestHiKVFactory::multiple_thread_test()
         }
     }
     // Here to print result
-    printf("[queue collision count] : %d [lock collision count] : %d [bplus collision count] %d\n", \
-        queue_collision_times, lock_collision_times, hikv->get_bp()->collision_times);
+    printf("[Queue Collision Count] : %d [Lock Collision Count] : %d\n", \
+        queue_collision_times, lock_collision_times);
     for(int i = 0; i < r_st; i++)
     {
         printf("[%02d]", i);
-        printf("[count : %5d cost : %10llu avg : %8.2f]", \
+        printf("[Count : %5d cost : %10llu AVG : %8.2f]", \
             op_count[i], op_sum[i], (double)op_sum[i] / op_count[i]);
-        if(over_count[i] == 0) {
+        if(over_count[i] == 0) 
+        {
             over_count[i] = 1;
         }
-        printf("[count : %5d cost : %10llu avg : %8.2f]\n", \
+        printf("[Count : %5d cost : %10llu AVG : %8.2f]\n", \
             over_count[i], over_sum[i], (double)over_sum[i] / over_count[i]);
     }
     for(int i = 0; i < r_st; i++)
     {
-        printf("[%02d][%8.2f][count : %4.2lf%% (%-8d/%8d) cost : %4.2lf%%]\n", \
+        printf("[%02d][%8.2f][Count : %4.2lf%% (%-8d/%8d) Cost : %4.2lf%%]\n", \
             i, limit_t[i], (double)over_count[i]/op_count[i] * 100.0, \
             over_count[i], op_count[i], (double)over_sum[i]/op_sum[i] * 100.0);
     }
-#endif
 }
 
-void TestHiKVFactory::single_thread_test() 
-{    
+// Function to use single thread test
+void TestHiKVFactory::multiple_thread_test() 
+{
+    double time_count = 0;
+    double sum_iops = 0;
+    int opt_count = data_set->data_count;
+    struct timeval begin_time, end_time;
 
+    // If hikv is null we need to create a new hikv to run our test.
+    if(hikv == NULL) {
+        // calculate bucket count.
+        this->num_ht_buckets = opt_count * 2 / (this->num_ht_partitions * NUM_ITEMS_PER_BUCKET);
+        hikv = new HiKV(128, 1024, this->num_ht_partitions, this->num_ht_buckets, \
+                    this->num_server_threads, \
+                    this->num_backend_threads);
+    }
+
+    // Create run thread and wait threads to exit,
+    // here we count the time use gettimeofday.
+    gettimeofday(&begin_time, NULL);
+    
+    // create run thread
+    thread_init();
+
+    gettimeofday(&end_time, NULL);
+
+    // Show hikv result (iops and runtime).
+    // Here we show the sum iops of all threads,
+    time_count = (double)(1000000.0 * ( end_time.tv_sec - begin_time.tv_sec ) + \
+                    end_time.tv_usec - begin_time.tv_usec) / 1000000.0;
+    
+    for(int i = 0; i < num_server_threads; i++) {
+        sum_iops += this->arr_iops[i];
+    }
+    printf("[Result] Opt Count : %d, Time Count : %.5f s, iops : %.5f\n", \
+            opt_count, time_count, sum_iops);
+
+    // In order to ensure the correctness of the data, we have to verify hashtable.
+    verify_hashtable();
+
+    // In order to ensure the correctness of the data, we have to verify bplus tree.
+#ifdef BACKEND_THREAD
+    verify_bptree();
+#endif
+
+    // If you need more accurate statistics, we need to run this function.
+#if ((defined COLLECT_RDTSC) || (defined COLLECT_TIME))
+    data_analysis();
+#endif
 }

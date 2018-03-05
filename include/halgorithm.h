@@ -12,6 +12,9 @@
 #include "citycrc.h"
 namespace hikv 
 {
+    // Class : Algorithm
+    // The design used to store algorithms, most of 
+    // which are written by others wheel.
     class Algorithm 
     {
         public:

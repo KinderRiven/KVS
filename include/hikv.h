@@ -9,7 +9,7 @@
 #define HIKV_H_
 #include "hhash.h"
 #include "config.h"
-#include "bptree/hbptree.h"
+#include "hbptree.h"
 #include "hthread.h"
 #include <vector>
 namespace hikv 
@@ -28,24 +28,26 @@ namespace hikv
                     uint32_t num_server_threads, \
                     uint32_t num_backend_threads);     // threadpool
             ~HiKV();
-            // Single processing
             Status Put(Slice &key, Slice &value, Config &config);
             Status Get(Slice &key, Slice &value, Config &config);
-            Status Delete(Slice &key, Slice &value, Config &config);
-            // Batch processing
+            Status Delete(Slice &key, Config &config);
             void Print();
-            // Just for test
-            BpTree *get_bp() { return bp_tree; }
+        public:
+            HBpTree *get_bp() { return bp_tree; }
         private:
+            // other var
             size_t max_key_length;
             size_t max_value_length;
-            // bpTree
-            BpTree *bp_tree;
-            // hashtable
+            
+            // bptree var
+            HBpTree *bp_tree;
+            
+            // hashtable  var
             uint32_t num_ht_partitions;
             uint32_t num_ht_buckets;
             HashTable *hash_table;
-            // threadpool
+            
+            // threadpool var
             uint32_t num_server_threads;
             uint32_t num_backend_threads;
             uint32_t num_backend_queues;

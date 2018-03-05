@@ -41,11 +41,13 @@
 typedef std::pair<uint64_t, uint64_t> uint128_t;
 
 namespace hikv{
-    #define SLICE_SIZE 2048
+    #define SLICE_SIZE 256
+    // Class : Slice
+    // The media that is passed between most operations is a fixed-size array.
     class Slice 
     {
         public:
-            // Create an empty slice.
+            // create an empty slice.
             Slice() 
             {
                 data_ = (char *)malloc(SLICE_SIZE);
@@ -53,7 +55,7 @@ namespace hikv{
                 size_ = 0;
             };
             
-            // Copy
+            // Slice copy structure
             Slice(const Slice &s) 
             {
                 this->size_ = s.size_;
@@ -87,7 +89,7 @@ namespace hikv{
 
             ~Slice() { free(data_); }
             
-            // Return value.
+            // return value.
             const char* data() const 
             {
                 return data_;
@@ -96,7 +98,8 @@ namespace hikv{
             {
                 return size_;
             }
-            // Set value.
+
+            // set value.
             void set(const char *data, size_t size) 
             {
                 size_ = size;
@@ -112,7 +115,8 @@ namespace hikv{
                 size_ = s.size();
                 memcpy((void *)data_, (void *)s.data(), size_);
             }
-            // Overload operator.
+
+            // overload operator.
             char operator[](size_t n) const 
             {
                 assert(n < size());
@@ -129,10 +133,12 @@ namespace hikv{
             size_t size_;
             char *data_;
     };
+
     inline bool operator == (const Slice &x, const Slice &y) 
     {
         return ((x.size() == y.size()) && (memcmp(x.data(), y.data(), x.size()) == 0));
     }
+    
     class Config
     {
         public:

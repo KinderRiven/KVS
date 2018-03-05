@@ -11,52 +11,33 @@
 //#define _GNU_SOURCE
 #include "htype.h"
 #include "hhash.h"
-#include "bptree/hbptree.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "hbptree.h"
 #include <pthread.h>
+#include "config.h"
 #include <sched.h>
 #include <unistd.h>
 
-// threads
-#define MAX_NUM_THREADS 64
-#define DEFAULT_NUM_THREADS 1
-
-// queue
-#define MAX_NUM_QUEUES 128
-#define DEFAULT_NUM_QUEUES 1
-
-// queue size
-#define MAX_QUEUE_SIZE 81920
-#define DEFAULT_QUEUE_SIZE 8192
-
-#define TYPE_THREAD_POOL_BTREE 1
-
-#define TYPE_WORKER_PUT 1
-#define TYPE_WORKER_GET 2
-#define TYPE_WORKER_DEL 3
-
-#define COLLISION_FAIL_TIMES 16
-
-namespace hikv
+namespace hikv 
 {
     class ThreadPool;
+    
     // Bplus tree worker struct
-    struct bplus_tree_worker 
+    struct bplus_tree_worker  
     {
-        BpTree *bp;
+        HBpTree *bp;
         uint8_t type;
         KEY key;
         DATA data;
     };
+    
     // HashTable worker struct
     struct hash_table_worker 
     {
-        HashTable *hash_table;
-        Slice key, value;
-        uint8_t type;
     };
+    
     // Thread arg
     struct thread_args 
     {
@@ -68,43 +49,72 @@ namespace hikv
         bool one_queue_one_consumer;
         ThreadPool *tp;
     };
-    // Thread request queue
-    struct request_queue 
+    
+    // Thread queue group
+    struct queue_group
     {
-        uint32_t size;      // queue size
-        uint32_t weight;    // queue weight for dispenser
+        uint32_t num_queues;
+        uint32_t per_queue_size;
         volatile uint32_t write_index;
         volatile uint32_t max_write_index;
         volatile uint32_t read_index;
         volatile uint32_t max_read_index;
-        uint8_t  data[0];    // ptr
+        void *queues[MAX_QUEUES_PER_GROUP];
     };
+    
+    // Thread request queue
+    struct request_queue 
+    {
+        uint32_t size;          // queue size
+        volatile uint32_t write_index;
+        volatile uint32_t max_write_index;
+        volatile uint32_t read_index;
+        volatile uint32_t max_read_index;
+        uint8_t  data[0];       // ptr
+    };
+    
     //class threadpool
     class ThreadPool 
     {
         private:
-            struct request_queue *queues[MAX_NUM_QUEUES];
-            pthread_t pthread_id[MAX_NUM_THREADS];
+            // threadpool var
+            uint8_t type;
             uint32_t num_producers;
             uint32_t num_consumers;
-            uint32_t num_queues;
-            uint32_t queue_size;
-            uint8_t type;
+            pthread_t pthread_id[MAX_NUM_THREADS];
             bool one_queue_one_consumer;
             bool one_queue_one_producer;
+            // queue var
+            struct request_queue *queues[MAX_NUM_QUEUES];
+            uint32_t num_queues;
+            uint32_t queue_size;
+            // queue group var
+            uint32_t num_queue_groups;
+            uint32_t per_queue_size;
+            struct queue_group *queue_groups[MAX_NUM_QUEUES_GROUP];
+        private:
             bool init_queue();
             bool init_thread();
         public:
+            // struct function
             ThreadPool();
             ThreadPool(uint8_t type, uint32_t num_producers, uint32_t num_consumers, \
                 uint32_t num_queues, uint32_t queue_size);
             ~ThreadPool();
+            // initlization ThreadPool.
             bool init();
+            // get function
             uint8_t get_type() { return type; }
-            bool add_worker(uint8_t opt, uint32_t qid, void *object, \
-                        KEY &key, DATA &data, Status &status);
             struct request_queue *get_queue(int qid);
+            struct queue_group *get_queue_group(int gid);
+            // print message.
             void Print();
+            // add task into one queue.
+            bool add_worker_into_queue(uint8_t opt, uint32_t qid, void *object, \
+                        KEY &key, DATA &data, Status &status); 
+            // add task into one queue group.
+            bool add_worker_into_group(uint8_t opt, uint32_t qid, void *object, \
+                        KEY &key, DATA &data, Status &status);
     };
 }
 

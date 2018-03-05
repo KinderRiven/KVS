@@ -11,23 +11,19 @@
 #include "htype.h"
 #include "hstatus.h"
 
-// Hight 8 bits is key length.
-#define HIKV_KEY_MASK (((uint32_t)1 << 8) - 1)
-#define HIKV_KEY_LENGTH(kv_length_vec) ((kv_length_vec) >> 24)
-
-// Low 24 bits is value length.
-#define HIKV_VALUE_MASK  (((uint32_t)1 << 24) - 1)
-#define HIKV_VALUE_LENGTH(kv_length_vec) ((kv_length_vec) & HIKV_VALUE_MASK)
-// Combine key-value length.
-#define HIKV_VEC_KV_LENGTH(key_length, value_length) (((uint32_t)(key_length) << 24) | (uint32_t)(value_length))
-
-// the count of items of per bucker.
-#define NUM_ITEMS_PER_BUCKET 15
-// the max partitions of per hashtable.
-#define MAX_PARTITIONS_PER_HT 4096
-
 namespace hikv 
 {
+    // Hight 8 bits is key length.
+    #define HIKV_KEY_MASK (((uint32_t)1 << 8) - 1)
+    #define HIKV_KEY_LENGTH(kv_length_vec) ((kv_length_vec) >> 24)
+
+    // Low 24 bits is value length.
+    #define HIKV_VALUE_MASK  (((uint32_t)1 << 24) - 1)
+    #define HIKV_VALUE_LENGTH(kv_length_vec) ((kv_length_vec) & HIKV_VALUE_MASK)
+    
+    // Combine key-value length.
+    #define HIKV_VEC_KV_LENGTH(key_length, value_length) (((uint32_t)(key_length) << 24) | (uint32_t)(value_length))
+
     // struct hash table's item
     // need to be persised, and align 8 bytes.
     struct hash_table_item 
@@ -41,8 +37,8 @@ namespace hikv
     #define BUCKET_ITEM_LENGTH 16
     struct bucket_item
     {
-        uint64_t signature;
-        uint64_t addr;
+        uint64_t signature; // 8 bytes
+        uint64_t addr;      // 8 bytes
     };
 
     // struct hash table's bucket (Each bucket has some items)
@@ -54,6 +50,7 @@ namespace hikv
     };
     
     // struct hash partition (Each partition has some buckets)
+    // align 8 bytes
     struct hash_table_partition 
     {
         struct partition_bucket *buckets;       // buckets

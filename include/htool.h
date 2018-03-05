@@ -9,8 +9,6 @@
 #define HTOOLS_H_
 
 #include <cstring>
-#define HIKV_ROUNDUP8(x) (((x) + 7UL) & (~7UL))
-
 namespace hikv 
 {
     class Tool 
