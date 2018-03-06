@@ -81,7 +81,6 @@ Status HiKV::Scan(Slice &lower, Slice &upper, std::vector<Slice> &values)
 Status HiKV::Put(Slice &key, Slice &value, Config &config) 
 {
     Status status;
-
 #ifdef COLLECT_RDTSC
     uint64_t st_start, st_end;
 #endif

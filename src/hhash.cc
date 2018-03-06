@@ -127,7 +127,7 @@ static uint32_t read_end_version(struct partition_bucket *bucket)
 // Function to get item from bucket.
 // If find return true, [bucket][index] is we need,
 // else return false, [bucket][index] is empty index.
-static bool find_bucket_item_index(const char *key, size_t key_len, \
+static uint32_t find_bucket_item_index(const char *key, size_t key_len, \
                                 struct partition_bucket **bucket) 
 {
     // Hash64 to compare with bucket signature.
@@ -308,7 +308,7 @@ Status HashTable::Put(Slice &s_key, Slice &s_value)
     size_t key_len = s_key.size();
     const char *value = s_value.data();
     size_t value_len = s_value.size();
-    
+  
     // Calculate the hash index of partition and bucket.
     uint16_t partition_index = calc_partition_index(key, key_len);
     uint32_t bucket_index = calc_bucket_index(key, key_len);
@@ -346,7 +346,6 @@ Status HashTable::Put(Slice &s_key, Slice &s_value)
     {
         // find so we need to update.
         res = update_kv_item(value, value_len, tmp_bucket, item_index);
-        // status.set_msg("Found and Update.");
     }
     else 
     {
@@ -368,7 +367,6 @@ Status HashTable::Put(Slice &s_key, Slice &s_value)
         #endif
             // put bucket item
             res = put_kv_item(key, key_len, value, value_len, tmp_bucket, item_index, status);
-            // status.set_msg("Not Found and Put.");
         #ifdef COLLECT_RDTSC
             st_end = rdtsc();
             status.append_rdt(st_end - st_start);
@@ -378,7 +376,6 @@ Status HashTable::Put(Slice &s_key, Slice &s_value)
         {
             // TODO no space operator.
             res = false;
-            // status.set_msg("Error No Space");
         }
     }
     status.set_ok(res);

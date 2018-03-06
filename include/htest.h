@@ -73,6 +73,7 @@ namespace hikv
             void single_thread_test();
             void multiple_thread_test();
         public:
+            HashTable *ht;  
             TestDataSet *data_set;
             vector<Status> vec_status[MAX_NUM_THREADS];
             double arr_iops[MAX_NUM_THREADS];
@@ -82,7 +83,6 @@ namespace hikv
             void data_analysis();
         private:
             pthread_t thread_id[MAX_TEST_THREAD];
-            HashTable *ht;
             int num_threads;
             int num_ht_partitions;
             int num_ht_buckets;
@@ -101,6 +101,7 @@ namespace hikv
             void single_thread_test();
             void multiple_thread_test();
         public:
+            HBpTree *bp;
             TestDataSet *data_set;
             vector<Status> vec_status[MAX_NUM_THREADS];
             double arr_iops[MAX_NUM_THREADS];
@@ -111,7 +112,6 @@ namespace hikv
             void data_analysis();
         private:
             pthread_t thread_id[MAX_TEST_THREAD];
-            HBpTree *bp;
             int num_threads;
             int key_length;
             int value_length;
@@ -128,18 +128,18 @@ namespace hikv
                     int key_length, int value_length);
             void single_thread_test();
             void multiple_thread_test();   
+        public:
+            HiKV *hikv;
+            TestDataSet *data_set;
+            vector<Status> vec_status[MAX_NUM_THREADS];
+            double arr_iops[MAX_NUM_THREADS];
         private:
             void thread_init();
             void verify_hashtable();
             void verify_bptree();
             void data_analysis();
-        public:
-            TestDataSet *data_set;
-            vector<Status> vec_status[MAX_NUM_THREADS];
-            double arr_iops[MAX_NUM_THREADS];
         private:
             pthread_t thread_id[MAX_TEST_THREAD];
-            HiKV *hikv;
             int num_ht_partitions;
             int num_ht_buckets;
             int key_length;

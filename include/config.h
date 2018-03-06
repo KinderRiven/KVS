@@ -66,12 +66,12 @@
 #define MAX_PARTITIONS_PER_HT 4096
 
 // the count of items of per bucker.
-#define NUM_ITEMS_PER_BUCKET 15
+#define NUM_ITEMS_PER_BUCKET (15)
 
 ///////////////////////////////////////////////
 
 // we can collect clock by rdtsc()
-#define COLLECT_RDTSC
+// #define COLLECT_RDTSC
 
 // we can collect time by timeofday()
 // #define COLLECT_TIME

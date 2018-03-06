@@ -32,8 +32,10 @@ static void* thread_run(void *args_)
                 break;
             case TEST_GET:
                 status = hikv->Get(s_key, s_value, config);
+                break;
             case TEST_DEL:
                 status = hikv->Delete(s_key, config);
+                break;
             default:
                 cout << "[ERROR] Illegal Parameters!" << endl;
                 break;

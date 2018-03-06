@@ -186,7 +186,7 @@ namespace hikv
                                 upper.key, upper.key_length, keys, addrs);
                 return true;
             }
-
+            
             bool ScanAll(std::vector<Slice> &values)
             {
                 vector<uint64_t> addrs;
