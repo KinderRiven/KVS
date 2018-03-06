@@ -30,7 +30,7 @@ static void* thread_run(void *args_)
    
     for(int i = 0; i < opt_count; i++) {
         KEY key = KEY(data_set->vec_key[tid][i]);
-        DATA data;
+        DATA data = DATA(i);
         bool res;
         gettimeofday(&begin_time, NULL);
         switch(data_set->vec_opt[tid][i]) {
@@ -97,4 +97,10 @@ void TestBpTreeFactory::multiple_thread_test()
     }
     printf("[Result] Opt Count : %d, Time Count : %.5f s, IOPS : %.5f\n", \
             opt_count, time_count, sum_iops);
+    
+    vector<Slice> values;
+    bp->ScanAll(values);
+    KEY lower = KEY("w7ooq6WFIA0aNo7E");
+    KEY upper = KEY("yn8LG9qmMbaeiqCl");
+    bp->Scan(lower, upper, values);
 }

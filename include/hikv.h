@@ -31,6 +31,7 @@ namespace hikv
             Status Put(Slice &key, Slice &value, Config &config);
             Status Get(Slice &key, Slice &value, Config &config);
             Status Delete(Slice &key, Config &config);
+            Status Scan(Slice &lower, Slice &upper, std::vector<Slice> &values);
             void Print();
         public:
             HBpTree *get_bp() { return bp_tree; }

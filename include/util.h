@@ -57,11 +57,16 @@ static void persist_data(void *p, size_t length)
 	uint64_t cpu_ticks = NVM_WRITE_LATENCY * 2.1 * factor;
 	uint64_t begin = rdtsc();
 	while (rdtsc() < begin + cpu_ticks) {}
-	sfence();		
+	sfence();	
 #endif
 }
 
 static void memcpy8(uint8_t *dest, const uint8_t *src, size_t length)
+{
+    memcpy(dest, src, length);
+}
+
+static void _memcpy8(uint8_t *dest, const uint8_t *src, size_t length)
 {
     length = NVMKV_ROUNDUP8(length);
     switch (length >> 3)
@@ -93,6 +98,11 @@ static void memcpy8(uint8_t *dest, const uint8_t *src, size_t length)
 }
 
 static bool mehcached_memcmp8(const uint8_t *dest, const uint8_t *src, size_t length)
+{
+    return memcmp(dest, src, length);
+}
+
+static bool _mehcached_memcmp8(const uint8_t *dest, const uint8_t *src, size_t length)
 {
     length = NVMKV_ROUNDUP8(length);
     switch (length >> 3)
@@ -134,6 +144,14 @@ static bool mehcached_memcmp8(const uint8_t *dest, const uint8_t *src, size_t le
 
 static int key_memcmp8(const uint8_t *key1, const uint8_t *key2, size_t key1_length, size_t key2_length)
 {
+    return memcmp(key1, key2, key1_length);
+}
+
+static int _key_memcmp8(const uint8_t *key1, const uint8_t *key2, size_t key1_length, size_t key2_length)
+{
+
+    return memcmp(key1, key2, key1_length);
+
     key1_length = NVMKV_ROUNDUP8(key1_length);
     key2_length = NVMKV_ROUNDUP8(key2_length);
 	size_t i = 0;

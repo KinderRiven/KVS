@@ -48,6 +48,7 @@ namespace hikv
             vector<int> vec_opt[MAX_TEST_THREAD];       // save operator type
             vector<string> vec_key[MAX_TEST_THREAD];    // save key
             vector<string> vec_value[MAX_TEST_THREAD];  // save value
+            vector<uint64_t> vec_int[MAX_TEST_THREAD];  // save int value
         public:
             TestDataSet();
             void init();

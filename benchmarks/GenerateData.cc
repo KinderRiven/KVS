@@ -85,10 +85,8 @@ void GenerateDataFactory::generate_data()
 GenerateDataConfig config = {16, 16, 128, 128, "data_100M.in", 100 * 1024 * 1024};
 int main(int argc, char *argv[]) 
 {
+    config.output_filename = argv[1];
+    config.file_size = atol(argv[2]) * 1024 * 1024; //MB
     GenerateDataFactory *factory = new GenerateDataFactory(config);
-    if(argc == 2) {
-        config.output_filename = argv[1];
-        config.file_size = atol(argv[2]) * 1024 * 1024; //MB
-    }
     factory->generate_data();
 }

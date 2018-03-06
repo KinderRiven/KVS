@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 #include <queue>
 #include <immintrin.h>
 
@@ -15,6 +16,7 @@
 
 #include "util.h"
 
+using namespace std;
 // #define USE_RWLOCK
 #define BPTREE_ELEMENT_LENGTH 8
 #define BPTREE_VALUE_LENGTH 8
@@ -1002,6 +1004,94 @@ public:
 		return -1LL;
 	}
 
+	static bool bptree_scan(Bptree *bt, uint8_t *lower, size_t lower_length, \
+					uint8_t *upper, size_t upper_length, \
+					vector<string> &keys, vector<uint64_t> &data)
+	{
+		while (true)
+		{
+			spec_rw_mutex_t::scoped_lock spec_lock;
+			spec_lock.acquire(bt->spec_mutex, false);
+
+			leaf_node *lower_leaf = bt->find_leaf_node(lower, lower_length);
+			leaf_node *upper_leaf = bt->find_leaf_node(upper, upper_length);
+			leaf_node *leaf = lower_leaf;
+			leaf_node *next_leaf;
+
+			spec_lock.release();
+
+			if (!leaf->try_lock()) {
+				continue;
+			}
+
+			bool has_same_key1 = false;
+			bool has_same_key2 = false;
+			
+			uint32_t lower_slot = bt->leaf_binary_search(lower_leaf, lower, lower_length, &has_same_key1);
+			uint32_t upper_slot = bt->leaf_binary_search(upper_leaf, upper, upper_length, &has_same_key2);
+			uint32_t slot = lower_slot;
+
+			if (lower_leaf == upper_leaf) {
+				for (int i = lower_slot; i < upper_slot; i++) {
+					KV_item *item = &(leaf->kv_items[i]);
+					string key = string((char *)item->key, item->key_length);
+					keys.push_back(key);
+					data.push_back(item->value);
+				}
+				return true;
+			}
+
+			while(true) 
+			{
+				assert(leaf != NULL);
+				if (leaf == upper_leaf) {
+					break;
+				}
+				for (int i = slot; i < leaf->nkeys; i++) {
+					KV_item *item = &(leaf->kv_items[i]);
+					string key = string((char *)item->key, item->key_length);
+					keys.push_back(key);
+					data.push_back(item->value);
+				}
+				next_leaf = leaf->next;
+				leaf->unlock();
+				leaf = next_leaf;
+				assert(leaf != NULL);
+				leaf->lock();
+				slot = 0;
+			}
+			
+			assert(leaf == upper_leaf);
+
+			for (int i = 0; i <= upper_slot; i++) 
+			{
+				KV_item *item = &(leaf->kv_items[i]);
+				string key = string((char *)item->key, item->key_length);
+				keys.push_back(key);
+				data.push_back(item->value);
+			}
+			leaf->unlock();
+			break;
+		}
+		return true;
+	}
+
+	static void bptree_scan_all_leaf(Bptree *bt, vector<string> &keys, vector<uint64_t> &data)
+	{
+		leaf_node *leaf = bt->leaf_list_header;
+		
+		while(leaf != NULL)
+		{
+			for(int i = 0; i < leaf->nkeys; i++) 
+			{
+				KV_item *item = &(leaf->kv_items[i]);
+				string key = string((char *)item->key, item->key_length);
+				keys.push_back(key);
+				data.push_back(item->value);
+			}
+			leaf = leaf->next;
+		}
+	}
 };
 
 }

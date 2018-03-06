@@ -67,7 +67,12 @@ Status HiKV::Delete(Slice &key, Config &config)
         conver_slice_to_key(key, bp_key);
         bp_tree->Delete(bp_key);
     }
+    return status;
+}
 
+Status HiKV::Scan(Slice &lower, Slice &upper, std::vector<Slice> &values)
+{
+    Status status;
     return status;
 }
 

@@ -125,7 +125,9 @@ static uint32_t read_end_version(struct partition_bucket *bucket)
 }
 
 // Function to get item from bucket.
-static uint32_t find_bucket_item_index(const char *key, size_t key_len, \
+// If find return true, [bucket][index] is we need,
+// else return false, [bucket][index] is empty index.
+static bool find_bucket_item_index(const char *key, size_t key_len, \
                                 struct partition_bucket **bucket) 
 {
     // Hash64 to compare with bucket signature.
@@ -133,7 +135,7 @@ static uint32_t find_bucket_item_index(const char *key, size_t key_len, \
     struct partition_bucket *current_bucket = *bucket;
     while(true)
     {
-        for(int i = 0; i < NUM_ITEMS_PER_BUCKET; i++) 
+        for (int i = 0; i < NUM_ITEMS_PER_BUCKET; i++) 
         {
             if (current_bucket->items[i].signature != _hash64)
                 continue;
@@ -145,8 +147,9 @@ static uint32_t find_bucket_item_index(const char *key, size_t key_len, \
             *bucket = current_bucket;
             return i;
         }
-        if( current_bucket-> extra_bucket == NULL )
+        if ( current_bucket-> extra_bucket == NULL ) {
             break;
+        }
         current_bucket = current_bucket->extra_bucket;
     }
     // 404 No Found.
@@ -160,9 +163,9 @@ static uint32_t find_empty_bucket_item_index(struct partition_bucket **bucket)
     struct partition_bucket *current_bucket = *bucket;
     while(true) 
     {
-        for(int i = 0; i < NUM_ITEMS_PER_BUCKET; i++) 
+        for (int i = 0; i < NUM_ITEMS_PER_BUCKET; i++) 
         {
-            if(current_bucket->items[i].signature == 0) 
+            if (current_bucket->items[i].signature == 0) 
             {
                 *bucket = current_bucket;
                 return i;
@@ -344,7 +347,7 @@ Status HashTable::Put(Slice &s_key, Slice &s_value)
         // find so we need to update.
         res = update_kv_item(value, value_len, tmp_bucket, item_index);
         // status.set_msg("Found and Update.");
-    } 
+    }
     else 
     {
     // [2] collect find empty item time.

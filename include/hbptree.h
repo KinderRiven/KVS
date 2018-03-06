@@ -12,6 +12,7 @@
 #include "htype.h"
 #include "util.h"
 #include <queue>
+#include <string>
 #include <pthread.h>
 #include <stack>
 #include "bptree/bptree.h"
@@ -163,11 +164,9 @@ namespace hikv
             bool Get(KEY &key, DATA &data) 
             {
                 uint64_t value = Bptree::bptree_get(this->bp, key.key, key.key_length);
-                if (value == -1L) 
-                {
+                if (value == -1L) {
                     return false;
-                } else 
-                {
+                } else {
                     data.value_addr = value;
                     return true;
                 }
@@ -177,6 +176,23 @@ namespace hikv
             {
                 bool res = Bptree::bptree_delete(this->bp, key.key, key.key_length);
                 return res;
+            }
+            
+            bool Scan(KEY &lower, KEY &upper, std::vector<Slice> &values)
+            {
+                vector<uint64_t> addrs;
+                vector<string> keys;
+                bool res = Bptree::bptree_scan(this->bp, lower.key, lower.key_length, \
+                                upper.key, upper.key_length, keys, addrs);
+                return true;
+            }
+
+            bool ScanAll(std::vector<Slice> &values)
+            {
+                vector<uint64_t> addrs;
+                vector<string> keys;
+                Bptree::bptree_scan_all_leaf(bp, keys, addrs);
+                return true;
             }
     };
 }
